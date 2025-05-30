@@ -1,19 +1,18 @@
-const pool = require('../config/db');
+const db = require("../db");
 
-const createUser = async ({ username, password }) => {
-  const [result] = await pool.query(
-    'INSERT INTO users (username, password) VALUES (?, ?)',
-    [username, password]
-  );
-  return result.insertId;
+const findUserByUsername = (username, callback) => {
+  db.query("SELECT * FROM users WHERE username = ?", [username], callback);
 };
 
-const findUserByUsername = async (username) => {
-  const [rows] = await pool.query(
-    'SELECT * FROM users WHERE username = ?',
-    [username]
+const createUser = (username, password, callback) => {
+  db.query(
+    "INSERT INTO users (username, password) VALUES (?, ?)",
+    [username, password],
+    callback
   );
-  return rows[0];
 };
 
-module.exports = { createUser, findUserByUsername };
+module.exports = {
+  findUserByUsername,
+  createUser,
+};
