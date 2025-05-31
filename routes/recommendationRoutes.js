@@ -16,6 +16,14 @@ module.exports = {
         handler: RekomPresenter.collaborative,
         options: { auth: 'jwt' },
       },
+      {
+        method: 'GET',
+        path: '/recommendations/popular',
+        handler: RekomPresenter.getPopularDestinations,
+        options: {
+          auth: false // Tidak perlu login
+        },
+      },
     ]);
   },
 };
