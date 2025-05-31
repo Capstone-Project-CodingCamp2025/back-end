@@ -1,24 +1,16 @@
-const authHandler = require('../views/authView');
+const AuthPresenter = require('../presenters/authPresenter');
 
-module.exports = {
-  name: 'auth-routes',
-  register: async (server) => {
-    server.route([
-      {
-        method: 'POST',
-        path: '/register',
-        handler: authHandler.register,
-      },
-      {
-        method: 'POST',
-        path: '/login',
-        handler: authHandler.login,
-      },
-      {
-        method: 'POST',
-        path: '/logout',
-        handler: authHandler.logout,
-      },
-    ]);
+const authRoutes = [
+  {
+    method: 'POST',
+    path: '/api/register',
+    handler: AuthPresenter.register
   },
-};
+  {
+    method: 'POST',
+    path: '/api/login',
+    handler: AuthPresenter.login
+  }
+];
+
+module.exports = authRoutes;

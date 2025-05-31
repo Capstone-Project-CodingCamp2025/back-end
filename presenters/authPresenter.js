@@ -1,29 +1,57 @@
-const UserModel = require('../models/userModel');
-const bcrypt = require('bcrypt');
-const jwtService = require('../services/jwtService');
-const AuthView = require('../views/authView');
+const bcrypt = require("bcrypt");
+const UserModel = require("../models/userModel");
+const { generateToken } = require("../services/jwtService");
+const AuthView = require("../views/authView");
 
-module.exports = {
-  register: async (req, h) => {
-    const { email, password } = req.payload;
-    const hashed = await bcrypt.hash(password, 10);
-    await UserModel.create({ email, password: hashed });
-    return AuthView.success('User registered');
-  },
-
-  login: async (req, h) => {
-    const { email, password } = req.payload;
-    const user = await UserModel.findByEmail(email);
-    if (!user || !(await bcrypt.compare(password, user.password))) {
-      return AuthView.fail('Invalid credentials');
+const AuthPresenter = {
+  async register(request, h) {
+    const { email, password, username } = request.payload;
+  
+    const existingUser = await UserModel.findByEmail(email);
+    if (existingUser) {
+      return h.response(AuthView.error("Email sudah digunakan")).code(400);
     }
-
-    const token = jwtService.generateToken({ id: user.id, email: user.email });
-    return AuthView.success('Login successful', { token });
+  
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const userId = await UserModel.createUser({
+      email,
+      password: hashedPassword,
+      username, // tambahkan username di sini
+    });
+  
+    return h
+      .response(AuthView.success("Registrasi berhasil", { userId }))
+      .code(201);
   },
+  
+  async login(request, h) {
+    try {
+      const { email, password } = request.payload || {};
+      if (!email || !password) {
+        return h
+          .response(AuthView.error("Email dan password wajib diisi"))
+          .code(400);
+      }
 
-  logout: async (req, h) => {
-    // optional: handle blacklist, etc.
-    return AuthView.success('Logout success');
+      const user = await UserModel.findByEmail(email);
+      if (!user) {
+        return h.response(AuthView.error("Email tidak ditemukan")).code(404);
+      }
+
+      const isMatch = await bcrypt.compare(password, user.password);
+      if (!isMatch) {
+        return h.response(AuthView.error("Password salah")).code(401);
+      }
+
+      const token = generateToken({ id: user.id, email: user.email });
+      return h
+        .response(AuthView.success("Login berhasil", { token }))
+        .code(200);
+    } catch (err) {
+      console.error("Login error:", err);
+      return h.response(AuthView.error("Terjadi kesalahan server")).code(500);
+    }
   },
 };
+
+module.exports = AuthPresenter;
