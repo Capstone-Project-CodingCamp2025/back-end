@@ -1,25 +1,25 @@
-const userExists = (res) =>
-    res.status(400).json({ message: "User already exists" });
-
-const registerSuccess = (res) =>
-    res.status(201).json({ message: "User registered" });
-
-const invalidCredentials = (res) =>
-    res.status(400).json({ message: "Invalid credentials" });
-
-const loginSuccess = (res, token) => res.status(200).json({ token });
-
-const profile = (res, username) =>
-    res.status(200).json({ message: `Hello, ${username}!` });
-
-const serverError = (res, err) =>
-    res.status(500).json({ message: "Server error", error: err });
+const AuthPresenter = require('../presenters/authPresenter');
 
 module.exports = {
-    userExists,
-    registerSuccess,
-    invalidCredentials,
-    loginSuccess,
-    profile,
-    serverError,
+  register: async (request, h) => {
+    try {
+      const result = await AuthPresenter.register(request.payload);
+      return h.response({ message: 'User registered', data: result }).code(201);
+    } catch (err) {
+      return h.response({ message: 'Failed to register', error: err.message }).code(500);
+    }
+  },
+
+  login: async (request, h) => {
+    try {
+      const result = await AuthPresenter.login(request.payload);
+      return h.response({ token: result.token }).code(200);
+    } catch (err) {
+      return h.response({ message: 'Login failed', error: err.message }).code(401);
+    }
+  },
+
+  logout: async (request, h) => {
+    return h.response({ message: 'Logout success' }).code(200);
+  },
 };
