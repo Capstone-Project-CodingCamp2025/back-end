@@ -39,6 +39,11 @@ const AuthPresenter = {
       }
 
       const isMatch = await bcrypt.compare(password, user.password);
+      console.log("Login input:", email, password);
+      console.log("User found:", user);
+      console.log("Stored hash:", user.password);
+      console.log("Password match result:", isMatch);
+
       if (!isMatch) {
         return h.response(AuthView.error("Password salah")).code(401);
       }

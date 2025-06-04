@@ -12,8 +12,9 @@ const createServer = async () => {
     host: 'localhost',
     routes: {
       cors: {
-        origin: ['*'], // aktifkan CORS
-      },
+        origin: ['http://localhost:5173'],
+        credentials: true
+      }
     },
   });
 
