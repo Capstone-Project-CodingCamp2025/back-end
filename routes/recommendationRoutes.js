@@ -1,6 +1,6 @@
 const RekomPresenter = require('../presenters/recommendationPresenter');
 
-module.exports = {
+exports.plugin = {
   name: 'recommendation-routes',
   register: async (server) => {
     server.route([

@@ -1,8 +1,8 @@
+// presenters/recommendationPresenter.js
 const {
   getRecommendations,
   getPopular
 } = require('../services/recommendationService');
-const { getUserFromToken } = require('../plugins/jwt'); // sesuaikan jika ada
 
 // Content-Based Filtering (tanpa login)
 const contentBased = async (request, h) => {
@@ -48,22 +48,39 @@ const getPopularDestinations = async (request, h) => {
     const limit = parseInt(request.query.limit) || 12;
     console.log('Using limit:', limit);
 
+    // Pastikan limit adalah number yang valid
+    if (isNaN(limit) || limit <= 0) {
+      return h.response({ 
+        error: 'Invalid limit parameter',
+        message: 'Limit must be a positive number'
+      }).code(400);
+    }
+
+    console.log('Calling getPopular service...');
     const destinations = await getPopular(limit);
-    console.log('Destinations fetched:', destinations.length);
+    console.log('Destinations fetched successfully:', destinations.length);
+    
+    // Debug: tampilkan sample data
+    if (destinations.length > 0) {
+      console.log('Sample destination:', JSON.stringify(destinations[0], null, 2));
+    }
     
     const response = { 
-      recos: destinations,
+      destinations: destinations, // Ubah dari 'recos' ke 'destinations' sesuai frontend
       total: destinations.length,
       message: 'Popular destinations fetched successfully'
     };
     
+    console.log('Sending response with', destinations.length, 'destinations');
     return h.response(response).code(200);
   } catch (err) {
     console.error('Error in getPopularDestinations:', err);
+    console.error('Error stack:', err.stack);
+    
     return h.response({ 
       error: 'Failed to fetch popular destinations',
       message: err.message,
-      details: err.stack
+      details: process.env.NODE_ENV === 'development' ? err.stack : undefined
     }).code(500);
   }
 };

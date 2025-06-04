@@ -1,6 +1,6 @@
 const ratingHandler = require('../views/ratingView'); // pastikan file ini ada
 
-module.exports = {
+exports.plugin = {
   name: 'rating-routes',
   register: async (server) => {
     server.route([
