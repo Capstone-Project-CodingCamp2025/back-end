@@ -1,33 +1,79 @@
-// services/recommendationService.js
+// services/recommendationService.js - Fixed version
 const placeService = require('../models/placeModel');
+const ratingService = require('../models/ratingModel');
+const { computeCBF } = require('./cbfService');
+const { computeCF } = require('./cfService');
 
-// Wrapper untuk getPopular dari placeService
-const getPopular = async (limit = 12) => {
+async function getCBFRecommendations(ratings, topN = 5) {
+  console.log('=== CBF RECOMMENDATIONS SERVICE ===');
+  console.log('Ratings input:', JSON.stringify(ratings, null, 2));
+  
   try {
-    console.log('recommendationService.getPopular called with limit:', limit);
-    const result = await placeService.getPopular(limit);
-    console.log('recommendationService.getPopular result:', result.length, 'items');
-    return result;
+    const allPlaces = await placeService.getAllPlaces();
+    console.log('All places loaded:', allPlaces.length);
+    
+    if (!allPlaces || allPlaces.length === 0) {
+      console.log('❌ No places found in database');
+      return [];
+    }
+    
+    const recommendations = computeCBF(allPlaces, ratings, topN);
+    console.log('CBF recommendations result:', recommendations.length);
+    
+    return recommendations;
   } catch (error) {
-    console.error('Error in recommendationService.getPopular:', error);
-    throw error;
+    console.error('❌ Error in getCBFRecommendations:', error);
+    return [];
   }
-};
+}
 
-// Wrapper untuk getRecommendations dari placeService
-const getRecommendations = async (user, useCollaborative = false) => {
+async function getCFRecommendations(userId, topN = 5) {
+  console.log('=== CF RECOMMENDATIONS SERVICE ===');
+  console.log('User ID:', userId);
+  
   try {
-    console.log('recommendationService.getRecommendations called');
-    const result = await placeService.getRecommendations(user, useCollaborative);
-    console.log('recommendationService.getRecommendations result:', result);
-    return result;
+    const allRatings = await ratingService.getAllRatings();
+    console.log('All ratings loaded:', allRatings.length);
+    
+    if (!allRatings || allRatings.length === 0) {
+      console.log('❌ No ratings found in database');
+      return [];
+    }
+    
+    const placeIds = computeCF(userId, allRatings, topN);
+    console.log('CF place IDs:', placeIds);
+    
+    if (!placeIds || placeIds.length === 0) {
+      console.log('❌ No CF recommendations generated');
+      return [];
+    }
+    
+    // Get place details
+    const allPlaces = await placeService.getAllPlaces();
+    const recommendations = placeIds
+      .map(id => allPlaces.find(p => p.id === id))
+      .filter(place => place != null);
+    
+    console.log('CF recommendations result:', recommendations.length);
+    return recommendations;
   } catch (error) {
-    console.error('Error in recommendationService.getRecommendations:', error);
-    throw error;
+    console.error('❌ Error in getCFRecommendations:', error);
+    return [];
   }
-};
+}
 
-module.exports = {
-  getPopular,
-  getRecommendations
-};
+async function getPopular(limit = 12) {
+  console.log('=== POPULAR SERVICE ===');
+  console.log('Limit:', limit);
+  
+  try {
+    const popular = await placeService.getPopular(limit);
+    console.log('Popular places loaded:', popular.length);
+    return popular;
+  } catch (error) {
+    console.error('❌ Error in getPopular:', error);
+    return [];
+  }
+}
+
+module.exports = { getCBFRecommendations, getCFRecommendations, getPopular };

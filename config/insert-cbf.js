@@ -1,6 +1,6 @@
 const fs = require('fs');
 const csv = require('csv-parser');
-const db = require('./db'); // pastikan db.js ada di folder yang sama
+const db = require('./db');
 
 const rows = [];
 

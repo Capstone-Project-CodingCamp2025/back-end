@@ -1,250 +1,73 @@
-// services/placeService.js
+// models/placeModel.js - Enhanced debugging
+const db = require('../config/db');
+const {
+  generateImagePathWithFallback,
+  formatPrice
+} = require('../utils/imageHelpers');
 
-const fs = require('fs');
-const path = require('path');
-const db = require('../config/db'); // Ini adalah Promise Pool
-
-// Utility functions (tetap sama)
-function normalizeFolderName(namaTempat) {
-  if (!namaTempat || !namaTempat.trim()) {
-    return 'default';
-  }
-  return namaTempat
-    .replace(/[^a-zA-Z0-9\s_]/g, '')
-    .replace(/\s+/g, '_')
-    .trim();
-}
-
-function checkImageExists(imageUrlPath) {
+async function getPopular(limit = 12) {
+  console.log('=== GET POPULAR PLACES DEBUG ===');
+  console.log('Limit:', limit);
+  
   try {
-    const relativePath = imageUrlPath.replace(/^\//, '');
-    const fullPath = path.join(__dirname, '..', 'public', relativePath);
-    return fs.existsSync(fullPath);
-  } catch (err) {
-    console.error('Error checking image existence:', err);
-    return false;
-  }
-}
-
-function findFileByBasename(folderName, baseName) {
-  try {
-    const folderPath = path.join(__dirname, '..', 'public', 'image', folderName);
-    if (!fs.existsSync(folderPath)) {
-      return null;
-    }
-
-    const allFiles = fs.readdirSync(folderPath);
-    const imageFiles = allFiles.filter(fn =>
-      /\.(jpe?g|png|gif|webp)$/i.test(fn)
-    );
-
-    const mapByBasename = {};
-    imageFiles.forEach(file => {
-      const ext = path.extname(file);
-      const nameOnly = path.basename(file, ext);
-      const key = nameOnly.toLowerCase();
-      if (!mapByBasename[key]) mapByBasename[key] = [];
-      mapByBasename[key].push(file);
-    });
-
-    const targetKey = baseName.toLowerCase();
-    if (!mapByBasename[targetKey]) {
-      return null;
-    }
-
-    const candidates = mapByBasename[targetKey];
-    const priorityExt = ['.jpg', '.jpeg', '.png', '.webp', '.gif'];
-    for (const ext of priorityExt) {
-      const found = candidates.find(fn => path.extname(fn).toLowerCase() === ext);
-      if (found) return found;
-    }
-    return candidates[0];
-  } catch (err) {
-    console.error('Error in findFileByBasename:', err);
-    return null;
-  }
-}
-
-function getFirstImageInFolder(namaTempat) {
-  try {
-    if (!namaTempat || !namaTempat.trim()) return null;
-
-    const folderName = normalizeFolderName(namaTempat);
-    const folderPath = path.join(__dirname, '..', 'public', 'image', folderName);
-
-    if (!fs.existsSync(folderPath)) {
-      return null;
-    }
-
-    const allFiles = fs.readdirSync(folderPath);
-    const imageFiles = allFiles.filter(fn =>
-      /\.(jpe?g|png|gif|webp)$/i.test(fn)
-    );
-
-    if (imageFiles.length > 0) {
-      return `/image/${folderName}/${imageFiles[0]}`;
-    }
-
-    return null;
-  } catch (err) {
-    console.error('Error getting first image in folder:', err);
-    return null;
-  }
-}
-
-function generateImagePathWithFallback(namaTempat, thumbnail) {
-  if (thumbnail && thumbnail.trim()) {
-    const folderName = normalizeFolderName(namaTempat);
-    const foundFileName = findFileByBasename(folderName, thumbnail.trim());
-
-    if (foundFileName) {
-      return `/image/${folderName}/${foundFileName}`;
-    }
-  }
-
-  if (namaTempat && namaTempat.trim()) {
-    const firstImage = getFirstImageInFolder(namaTempat);
-    if (firstImage) {
-      return firstImage;
-    }
-  }
-
-  return '/image/default/default.jpg';
-}
-
-const formatPrice = (kategori) => {
-  const priceMap = {
-    'Museum': 'Rp 5.000 - Rp 15.000',
-    'Pantai': 'Gratis',
-    'Gunung': 'Rp 10.000 - Rp 25.000',
-    'Taman': 'Gratis',
-    'Candi': 'Rp 5.000 - Rp 30.000',
-    'Wisata Alam': 'Rp 5.000 - Rp 20.000'
-  };
-  return priceMap[kategori] || 'Gratis';
-};
-
-// PERBAIKAN UTAMA: Gunakan Promise Pool (tanpa callback)
-const getPopular = async (limit = 12) => {
-  try {
-    console.log('Executing database query with limit:', limit);
-    
-    // Test koneksi database terlebih dahulu
-    await testDatabaseConnection();
-    
-    const query = `
-      SELECT
-        id,
-        nama_tempat,
-        alamat,
-        thumbnail,
-        rating_avg,
-        jumlah_ulasan,
-        kategori,
-        link
+    const sql = `
+      SELECT id, nama_tempat, alamat, thumbnail, rating_avg, jumlah_ulasan, kategori, link
       FROM places
-      WHERE rating_avg IS NOT NULL
-        AND rating_avg > 0
-        AND nama_tempat IS NOT NULL
+      WHERE rating_avg > 0
       ORDER BY rating_avg DESC, jumlah_ulasan DESC
-      LIMIT ?;
-    `;
-
-    // Gunakan promise pool - TIDAK PAKAI CALLBACK!
-    const [results] = await db.query(query, [limit]);
-
-    console.log('Raw database results:', results.length, 'rows');
+      LIMIT ?`;
     
-    if (results.length === 0) {
-      console.log('No results found from database');
-      return [];
-    }
-
-    console.log('Sample raw result:', results[0]);
-
-    const formatted = results.map(place => {
-      const imageUrl = generateImagePathWithFallback(place.nama_tempat, place.thumbnail);
-      const price = formatPrice(place.kategori);
-
-      const formattedPlace = {
-        id: place.id,
-        name: place.nama_tempat || 'Unknown Place',
-        location: place.alamat || 'Unknown Location',
-        image: imageUrl,
-        rating: parseFloat(place.rating_avg) || 0,
-        reviewCount: parseInt(place.jumlah_ulasan) || 0,
-        price: price,
-        category: place.kategori || 'Wisata',
-        link: place.link || ''
-      };
-      
-      return formattedPlace;
-    });
-
-    console.log('Formatted results:', formatted.length, 'items');
-    console.log('Sample formatted result:', formatted[0]);
-
+    const [rows] = await db.query(sql, [limit]);
+    console.log('Raw database rows:', rows.length);
+    
+    const formatted = rows.map(r => ({
+      id:          r.id,
+      name:        r.nama_tempat,
+      location:    r.alamat,
+      image:       generateImagePathWithFallback ? generateImagePathWithFallback(r.nama_tempat, r.thumbnail) : r.thumbnail,
+      rating:      parseFloat(r.rating_avg)  || 0,
+      reviewCount: parseInt(r.jumlah_ulasan) || 0,
+      price:       formatPrice ? formatPrice(r.kategori) : r.kategori,
+      category:    r.kategori,
+      link:        r.link || ''
+    }));
+    
+    console.log('Formatted popular places:', formatted.length);
+    console.log('Sample formatted places:', JSON.stringify(formatted.slice(0, 2), null, 2));
+    
     return formatted;
-  } catch (err) {
-    console.error('Error in getPopular service:', err);
-    throw new Error('Failed to fetch popular destinations: ' + err.message);
-  }
-};
-
-// Test database connection function - GUNAKAN PROMISE POOL
-const testDatabaseConnection = async () => {
-  try {
-    console.log('Testing database connection...');
-    
-    // Gunakan promise pool - TIDAK PAKAI CALLBACK!
-    const [result] = await db.query('SELECT COUNT(*) as total FROM places');
-
-    console.log('Database test successful. Total places:', result[0].total);
-    
-    if (result[0].total === 0) {
-      console.warn('WARNING: No data found in places table!');
-    }
-    
-    return result[0].total;
-  } catch (err) {
-    console.error('Database connection test failed:', err);
-    throw new Error('Database connection failed: ' + err.message);
-  }
-};
-
-// Recommendation functions (simplified for debugging)
-const recommendCBF = (topK = 5) => {
-  try {
-    // Simplified implementation for testing
-    console.log('CBF recommendation called');
-    return ['Place 1', 'Place 2', 'Place 3', 'Place 4', 'Place 5'].slice(0, topK);
   } catch (error) {
-    console.error('Error in recommendCBF:', error);
-    throw new Error('Failed to generate CBF recommendations');
+    console.error('❌ Error getting popular places:', error);
+    return [];
   }
-};
+}
 
-const getRecommendations = async (user, useCollaborative = false) => {
+async function getAllPlaces() {
+  console.log('=== GET ALL PLACES DEBUG ===');
+  
   try {
-    console.log('getRecommendations called with:', { user: !!user, useCollaborative });
+    const sql = `SELECT id, nama_tempat, alamat, thumbnail, rating_avg, jumlah_ulasan, kategori, link FROM places ORDER BY id ASC`;
+    const [rows] = await db.query(sql);
     
-    if (useCollaborative && user) {
-      // For now, return CBF as hybrid is complex
-      const recos = recommendCBF();
-      return { recos, type: 'collaborative' };
-    } else {
-      const recos = recommendCBF();
-      return { recos, type: 'content-based' };
-    }
+    console.log('Total places in database:', rows.length);
+    
+    const formatted = rows.map(r => ({
+      id:          r.id,
+      name:        r.nama_tempat,
+      location:    r.alamat,
+      thumbnail:   r.thumbnail,
+      rating:      parseFloat(r.rating_avg)  || 0,
+      reviewCount: parseInt(r.jumlah_ulasan) || 0,
+      category:    r.kategori,
+      link:        r.link || ''
+    }));
+    
+    console.log('Sample places:', JSON.stringify(formatted.slice(0, 3), null, 2));
+    return formatted;
   } catch (error) {
-    console.error('Error in getRecommendations:', error);
-    throw new Error('Failed to generate recommendations: ' + error.message);
+    console.error('❌ Error getting all places:', error);
+    return [];
   }
-};
+}
 
-module.exports = {
-  recommendCBF,
-  getPopular,
-  getRecommendations,
-  testDatabaseConnection
-};
+module.exports = { getPopular, getAllPlaces };

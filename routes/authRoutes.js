@@ -14,6 +14,16 @@ exports.plugin = {
         method: 'POST',
         path: '/api/login',
         handler: AuthPresenter.login
+      },
+      {
+        method: 'GET',
+        path: '/api/me',
+        handler: AuthPresenter.getCurrentUser,
+      },
+      {
+        method: 'GET',
+        path: '/api/check-auth',
+        handler: AuthPresenter.getCurrentUser,
       }
     ]);
   }

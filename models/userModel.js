@@ -8,6 +8,11 @@ const UserModel = {
     return rows[0];
   },
 
+  async findById(id) {
+    const [rows] = await db.query("SELECT * FROM users WHERE id = ?", [id]);
+    return rows[0];
+  },
+
   async createUser({ username, email, password }) {
     const [result] = await db.query(
       "INSERT INTO users (username, email, password) VALUES (?, ?, ?)",

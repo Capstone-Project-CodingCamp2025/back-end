@@ -1,92 +1,128 @@
-// presenters/recommendationPresenter.js
-const {
-  getRecommendations,
-  getPopular
-} = require('../services/recommendationService');
+const { saveInitialRatings, countUserRatings, getUserRatings } = require('../models/ratingModel');
+const { getCBFRecommendations, getCFRecommendations, getPopular } = require('../services/recommendationService');
 
-// Content-Based Filtering (tanpa login)
-const contentBased = async (request, h) => {
-  try {
-    console.log('Content-based request received');
-    const result = await getRecommendations(null, false);
-    return h.response(result).code(200);
-  } catch (err) {
-    console.error('Error in contentBased:', err);
-    return h.response({ 
-      error: 'Failed to get content-based recommendations',
-      message: err.message 
-    }).code(500);
+async function initialRatings(request, h) {
+  console.log('=== INITIAL RATINGS PRESENTER DEBUG ===');
+  console.log('Auth credentials:', request.auth?.credentials);
+  console.log('Request payload:', JSON.stringify(request.payload, null, 2));
+  
+  if (!request.auth || !request.auth.credentials) {
+    console.log('❌ No authentication found');
+    return h.response({ message: 'Authentication required.' }).code(401);
   }
-};
-
-// Collaborative Filtering (butuh login + cukup rating)
-const collaborative = async (request, h) => {
+  
+  const userId = request.auth.credentials.id;
+  const ratings = request.payload;
+  
+  console.log('User ID:', userId);
+  console.log('Ratings payload:', JSON.stringify(ratings, null, 2));
+  
+  if (!userId) {
+    console.log('❌ No user ID found');
+    return h.response({ message: 'User ID not found.' }).code(400);
+  }
+  
+  if (!Array.isArray(ratings) || ratings.length < 3) {
+    console.log('❌ Invalid ratings array');
+    return h.response({ message: 'Minimal beri rating ke 3 tempat.' }).code(400);
+  }
+  
   try {
-    console.log('Collaborative request received');
-    const user = request.auth.credentials;
-    if (!user) {
-      return h.response({ error: 'User authentication required' }).code(401);
-    }
-    
-    const result = await getRecommendations(user, true);
-    return h.response(result).code(200);
+    await saveInitialRatings(userId, ratings);
+    console.log('✅ Ratings saved successfully');
+    return h.response({ message: 'Ratings saved.' }).code(200);
   } catch (err) {
-    console.error('Error in collaborative:', err);
+    console.error('❌ Error saving ratings:', err);
+    return h.response({ message: 'Gagal menyimpan rating.' }).code(500);
+  }
+}
+
+async function recommendations(request, h) {
+  console.log('=== RECOMMENDATIONS PRESENTER DEBUG ===');
+  console.log('Auth credentials:', request.auth?.credentials);
+  
+  if (!request.auth || !request.auth.credentials) {
+    console.log('❌ No authentication found');
+    return h.response({ message: 'Authentication required.' }).code(401);
+  }
+  
+  const userId = request.auth.credentials.id;
+  console.log('User ID:', userId);
+  
+  if (!userId) {
+    console.log('❌ No user ID found');
     return h.response({ 
-      error: 'Failed to get collaborative recommendations',
-      message: err.message 
+      destinations: [],
+      message: 'User ID not found.' 
     }).code(400);
   }
-};
-
-// Mengambil data dari table places
-const getPopularDestinations = async (request, h) => {
+  
   try {
-    console.log('Popular destinations request received');
-    console.log('Query params:', request.query);
+    const count = await countUserRatings(userId);
+    console.log('User ratings count:', count);
     
-    const limit = parseInt(request.query.limit) || 12;
-    console.log('Using limit:', limit);
-
-    // Pastikan limit adalah number yang valid
-    if (isNaN(limit) || limit <= 0) {
-      return h.response({ 
-        error: 'Invalid limit parameter',
-        message: 'Limit must be a positive number'
-      }).code(400);
+    let destinations = [];
+    
+    if (count < 5) {
+      console.log('Using CBF (Content-Based Filtering)');
+      
+      const ratings = await getUserRatings(userId);
+      console.log('User ratings for CBF:', JSON.stringify(ratings, null, 2));
+      
+      if (!ratings || ratings.length === 0) {
+        console.log('❌ No user ratings found');
+        return h.response({ 
+          destinations: [],
+          message: 'No ratings found. Please submit ratings first.' 
+        }).code(200);
+      }
+      
+      destinations = await getCBFRecommendations(ratings, 10);
+      console.log('CBF recommendations received:', destinations.length);
+      
+    } else {
+      console.log('Using CF (Collaborative Filtering)');
+      destinations = await getCFRecommendations(userId, 10);
+      console.log('CF recommendations received:', destinations.length);
     }
-
-    console.log('Calling getPopular service...');
-    const destinations = await getPopular(limit);
-    console.log('Destinations fetched successfully:', destinations.length);
     
-    // Debug: tampilkan sample data
-    if (destinations.length > 0) {
-      console.log('Sample destination:', JSON.stringify(destinations[0], null, 2));
+    if (!destinations) {
+      destinations = [];
     }
     
-    const response = { 
-      destinations: destinations, // Ubah dari 'recos' ke 'destinations' sesuai frontend
-      total: destinations.length,
-      message: 'Popular destinations fetched successfully'
-    };
+    console.log('Final destinations to return:', destinations.length);
+    console.log('Sample destinations:', JSON.stringify(destinations.slice(0, 2), null, 2));
     
-    console.log('Sending response with', destinations.length, 'destinations');
-    return h.response(response).code(200);
+    return h.response({ destinations }).code(200);
+    
   } catch (err) {
-    console.error('Error in getPopularDestinations:', err);
+    console.error('❌ Error getting recommendations:', err);
     console.error('Error stack:', err.stack);
-    
     return h.response({ 
-      error: 'Failed to fetch popular destinations',
-      message: err.message,
-      details: process.env.NODE_ENV === 'development' ? err.stack : undefined
+      destinations: [],
+      message: 'Gagal mendapat rekomendasi.',
+      error: err.message 
     }).code(500);
   }
-};
+}
 
-module.exports = {
-  contentBased,
-  collaborative,
-  getPopularDestinations,
-};
+async function popular(request, h) {
+  const limit = parseInt(request.query.limit, 10) || 12;
+  
+  console.log('=== POPULAR DESTINATIONS PRESENTER DEBUG ===');
+  console.log('Limit:', limit);
+  
+  try {
+    const destinations = await getPopular(limit);
+    console.log('Popular destinations count:', destinations.length);
+    return h.response({ destinations }).code(200);
+  } catch (err) {
+    console.error('❌ Error loading popular destinations:', err);
+    return h.response({ 
+      destinations: [],
+      message: 'Gagal memuat popular destinations.' 
+    }).code(500);
+  }
+}
+
+module.exports = { initialRatings, recommendations, popular };
