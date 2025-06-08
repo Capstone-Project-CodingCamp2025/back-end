@@ -36,6 +36,18 @@ exports.plugin = {
         path: '/api/recommendations/popular',
         handler: recPres.popular,          
         options: { auth: false } 
+      },
+      { 
+        method: 'GET',  
+        path: '/api/places/{id}',
+        handler: recPres.getPopularId,          
+        options: { auth: false } 
+      },
+      {
+        method: 'GET',  
+        path: '/api/places/{id}/details',
+        handler: recPres.getPlaceRatings,  // Use the new handler
+        options: { auth: false } // or true if authentication is required
       }
     ]);
     

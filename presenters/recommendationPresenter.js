@@ -1,5 +1,9 @@
 const { saveInitialRatings, countUserRatings, getUserRatings } = require('../models/ratingModel');
 const { getCBFRecommendations, getCFRecommendations, getPopular } = require('../services/recommendationService');
+// Fix: Import the functions directly, not as placeService object
+const { getPopularId: getPlaceById } = require('../models/placeModel');
+// Fix: Rename the imported function to avoid naming conflict
+const { getPlaceDetails } = require('../models/ratingModel');
 
 async function initialRatings(request, h) {
   console.log('=== INITIAL RATINGS PRESENTER DEBUG ===');
@@ -125,4 +129,58 @@ async function popular(request, h) {
   }
 }
 
-module.exports = { initialRatings, recommendations, popular };
+async function getPopularId(request, h) {
+  const placeId = parseInt(request.params.id);
+  
+  try {
+    // Fix: Call the imported function with alias to avoid naming conflict
+    const place = await getPlaceById(placeId);
+    
+    if (!place) {
+      return h.response({ 
+        statusCode: 404, 
+        error: "Not Found", 
+        message: "Place not found" 
+      }).code(404);
+    }
+    
+    return h.response(place).code(200);
+  } catch (error) {
+    console.error('Error getting place by ID:', error);
+    return h.response({ 
+      statusCode: 500, 
+      error: "Internal Server Error", 
+      message: "Failed to get place details" 
+    }).code(500);
+  }
+}
+
+async function getPlaceRatings(request, h) {
+  const placeId = parseInt(request.params.id);
+  
+  console.log('Getting place details for place ID:', placeId);
+  
+  try {
+    // Fix: Use the renamed function that gets place details, not individual ratings
+    const place = await getPlaceDetails(placeId);
+    
+    if (!place) {
+      return h.response({ 
+        statusCode: 404,
+        error: "Not Found",
+        message: 'No place found with this ID' 
+      }).code(404);
+    }
+    
+    return h.response(place).code(200);
+  } catch (error) {
+    console.error('Error getting place details:', error);
+    return h.response({ 
+      statusCode: 500, 
+      error: "Internal Server Error", 
+      message: "Failed to get place details" 
+    }).code(500);
+  }
+}
+
+module.exports = { initialRatings, recommendations, popular, getPopularId, getPlaceRatings };

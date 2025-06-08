@@ -70,4 +70,41 @@ async function getAllPlaces() {
   }
 }
 
-module.exports = { getPopular, getAllPlaces };
+async function getPopularId(id) {
+  console.log('Getting place by ID:', id);
+  
+  try {
+    // Fixed: Removed deskripsi column from SELECT query
+    const sql = `
+      SELECT id, nama_tempat, alamat, thumbnail, rating_avg, 
+             jumlah_ulasan, kategori, link
+      FROM places 
+      WHERE id = ?`;
+    
+    const [rows] = await db.query(sql, [id]);
+    
+    if (rows.length === 0) {
+      return null;
+    }
+    
+    const place = rows[0];
+    return {
+      id: place.id,
+      name: place.nama_tempat,
+      location: place.alamat,
+      image: generateImagePathWithFallback(place.nama_tempat, place.thumbnail),
+      rating: parseFloat(place.rating_avg) || 0,
+      reviewCount: parseInt(place.jumlah_ulasan) || 0,
+      price: formatPrice(place.kategori),
+      category: place.kategori,
+      link: place.link || '',
+      // Fixed: Provide default description since column doesn't exist
+      description: 'Deskripsi tidak tersedia'
+    };
+  } catch (error) {
+    console.error('Error in getPopularId:', error);
+    throw error;
+  }
+}
+
+module.exports = { getPopular, getAllPlaces, getPopularId };

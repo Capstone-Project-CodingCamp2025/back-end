@@ -123,9 +123,47 @@ async function getAllRatings() {
   }
 }
 
+async function getPlaceDetails(placeId) {
+  console.log('Getting place details for place ID:', placeId);
+  
+  try {
+    // Ambil detail tempat dari tabel place
+    const sql = `
+      SELECT id, nama_tempat, rating_avg, jumlah_ulasan, alamat, 
+             link, thumbnail, kategori, content
+      FROM places
+      WHERE id = ?`;
+    
+    const [rows] = await pool.query(sql, [placeId]);
+    
+    if (rows.length === 0) {
+      return null;
+    }
+    
+    const place = {
+      id: rows[0].id,
+      nama_tempat: rows[0].nama_tempat,
+      rating_avg: parseFloat(rows[0].rating_avg) || 0,
+      jumlah_ulasan: rows[0].jumlah_ulasan || 0,
+      alamat: rows[0].alamat,
+      link: rows[0].link,
+      thumbnail: rows[0].thumbnail,
+      kategori: rows[0].kategori,
+      content: rows[0].content
+    };
+    
+    console.log('Place details retrieved:', place.nama_tempat);
+    return place;
+  } catch (error) {
+    console.error('Error getting place details from database:', error);
+    throw error;
+  }
+}
+
 module.exports = {
   saveInitialRatings,
   countUserRatings,
   getUserRatings,
-  getAllRatings
+  getAllRatings,
+  getPlaceDetails  // Changed from getPlaceRatings to getPlaceDetails
 };
