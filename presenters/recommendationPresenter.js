@@ -1,8 +1,6 @@
 const { saveInitialRatings, countUserRatings, getUserRatings } = require('../models/ratingModel');
 const { getCBFRecommendations, getCFRecommendations, getPopular } = require('../services/recommendationService');
-// Fix: Import the functions directly, not as placeService object
-const { getPopularId: getPlaceById } = require('../models/placeModel');
-// Fix: Rename the imported function to avoid naming conflict
+const { getPopularId: getPlaceById, getAllPlaces: getAllPlacesModel } = require('../models/placeModel');
 const { getPlaceDetails } = require('../models/ratingModel');
 
 async function initialRatings(request, h) {
@@ -129,11 +127,28 @@ async function popular(request, h) {
   }
 }
 
+// NEW: Add getAllPlaces handler
+async function getAllPlaces(request, h) {
+  console.log('=== GET ALL PLACES PRESENTER DEBUG ===');
+  
+  try {
+    const places = await getAllPlacesModel();
+    console.log('All places count:', places.length);
+    return h.response(places).code(200);
+  } catch (err) {
+    console.error('❌ Error loading all places:', err);
+    return h.response({ 
+      statusCode: 500,
+      error: "Internal Server Error",
+      message: 'Gagal memuat semua tempat.' 
+    }).code(500);
+  }
+}
+
 async function getPopularId(request, h) {
   const placeId = parseInt(request.params.id);
   
   try {
-    // Fix: Call the imported function with alias to avoid naming conflict
     const place = await getPlaceById(placeId);
     
     if (!place) {
@@ -161,7 +176,6 @@ async function getPlaceRatings(request, h) {
   console.log('Getting place details for place ID:', placeId);
   
   try {
-    // Fix: Use the renamed function that gets place details, not individual ratings
     const place = await getPlaceDetails(placeId);
     
     if (!place) {
@@ -183,4 +197,11 @@ async function getPlaceRatings(request, h) {
   }
 }
 
-module.exports = { initialRatings, recommendations, popular, getPopularId, getPlaceRatings };
+module.exports = { 
+  initialRatings, 
+  recommendations, 
+  popular, 
+  getAllPlaces,  // ADD THIS EXPORT
+  getPopularId, 
+  getPlaceRatings 
+};

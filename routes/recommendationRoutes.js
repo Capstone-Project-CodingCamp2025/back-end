@@ -37,6 +37,13 @@ exports.plugin = {
         handler: recPres.popular,          
         options: { auth: false } 
       },
+      // ADD THIS NEW ROUTE for getAllPlaces
+      { 
+        method: 'GET',  
+        path: '/api/places',
+        handler: recPres.getAllPlaces,          
+        options: { auth: false } 
+      },
       { 
         method: 'GET',  
         path: '/api/places/{id}',
@@ -46,8 +53,8 @@ exports.plugin = {
       {
         method: 'GET',  
         path: '/api/places/{id}/details',
-        handler: recPres.getPlaceRatings,  // Use the new handler
-        options: { auth: false } // or true if authentication is required
+        handler: recPres.getPlaceRatings,
+        options: { auth: false }
       }
     ]);
     
