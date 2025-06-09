@@ -1,72 +1,86 @@
 const fs = require('fs');
 const csv = require('csv-parser');
-const db = require('./db');
-
+const db = require('./db'); // pastikan ini adalah mysql2/promise
 const rows = [];
 
-// Langkah 1: Baca CSV
-fs.createReadStream('/mnt/d/Projek/Capstone DBS/machine-learning/dataset/CBF_Cleaned.csv')
+// Baca file CSV
+fs.createReadStream('/mnt/d/Projek/Capstone DBS/machine-learning/etl_pipeline/transformed.csv')
   .pipe(csv())
   .on('data', (row) => {
     rows.push(row);
   })
-  .on('end', () => {
-    // Langkah 2: Buat tabel jika belum ada
-    const createTableQuery = `
-      CREATE TABLE IF NOT EXISTS places (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        nama_tempat VARCHAR(255),
-        rating_avg FLOAT,
-        jumlah_ulasan INT,
-        alamat TEXT,
-        link TEXT,
-        thumbnail TEXT,
-        kategori VARCHAR(100),
-        content TEXT
-      )
-    `;
+  .on('end', async () => {
+    try {
+      // Buat tabel places
+      const createPlacesTableQuery = `
+        CREATE TABLE IF NOT EXISTS places (
+          id INT AUTO_INCREMENT PRIMARY KEY,
+          nama_tempat VARCHAR(255),
+          deskripsi TEXT,
+          kategori VARCHAR(100),
+          rating FLOAT,
+          jumlah_ulasan INT,
+          alamat TEXT,
+          link TEXT,
+          thumbnail TEXT,
+          gambar TEXT
+        )
+      `;
 
-    db.query(createTableQuery, (err) => {
-      if (err) {
-        console.error('Gagal membuat tabel:', err);
-        db.end();
-        return;
-      }
-
+      await db.query(createPlacesTableQuery);
       console.log('Tabel `places` siap.');
 
-      // Langkah 3: Masukkan data CSV ke tabel
-      let inserted = 0;
+      // Buat tabel user_place_interactions
+      const createInteractionsTableQuery = `
+        CREATE TABLE IF NOT EXISTS user_preferences (
+          id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+          user_id INT NOT NULL,
+          place_id INT NOT NULL,
+          rating INT DEFAULT NULL,
+          liked TINYINT(1) DEFAULT NULL,
+          visited_at DATE DEFAULT NULL,
+          created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          INDEX (user_id),
+          INDEX (place_id)
+        )
+      `;
 
-      rows.forEach((row, index) => {
-        const query = `
+      await db.query(createInteractionsTableQuery);
+      console.log('Tabel `user_place_interactions` siap.');
+
+      // Masukkan data ke tabel places
+      let inserted = 0;
+      for (const [index, row] of rows.entries()) {
+        const insertQuery = `
           INSERT INTO places 
-            (nama_tempat, rating_avg, jumlah_ulasan, alamat, link, thumbnail, kategori, content)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            (nama_tempat, deskripsi, kategori, rating, jumlah_ulasan, alamat, link, thumbnail, gambar)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         `;
 
         const values = [
           row.nama_tempat,
+          row.deskripsi,
+          row.kategori,
           parseFloat(row.rating),
           parseInt(row.jumlah_ulasan),
           row.alamat,
           row.link,
           row.thumbnail,
-          row.kategori,
-          row.content,
+          row.gambar
         ];
 
-        db.query(query, values, (err) => {
-          if (err) {
-            console.error(`Gagal insert data baris ${index + 1}:`, err);
-          } else {
-            inserted++;
-            if (inserted === rows.length) {
-              console.log(`✅ Selesai insert ${inserted} data ke tabel places.`);
-              db.end(); // tutup koneksi
-            }
-          }
-        });
-      });
-    });
+        try {
+          await db.query(insertQuery, values);
+          inserted++;
+        } catch (err) {
+          console.error(`Gagal insert data baris ${index + 1}:`, err.message);
+        }
+      }
+
+      console.log(`✅ Selesai insert ${inserted} data ke tabel places.`);
+    } catch (err) {
+      console.error('Terjadi error:', err.message);
+    } finally {
+      await db.end();
+    }
   });

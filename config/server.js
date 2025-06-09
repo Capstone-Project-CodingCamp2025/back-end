@@ -1,6 +1,8 @@
 require('dotenv').config();
 const Hapi = require('@hapi/hapi');
 const Jwt = require('@hapi/jwt');
+const Inert = require('@hapi/inert'); // ADD THIS for static files
+const path = require('path');
 
 const authRoutes = require('../routes/authRoutes');
 const ratingRoutes = require('../routes/ratingRoutes');
@@ -12,18 +14,34 @@ const createServer = async () => {
     host: 'localhost',
     routes: {
       cors: {
-        origin: ['http://localhost:5173'],
+        origin: ['http://localhost:5175'],
         credentials: true
       }
     },
   });
 
-  // Register plugin jwt dulu
-  await server.register(Jwt);
+  // Register plugins
+  await server.register([
+    Jwt,
+    Inert // ADD THIS - needed for static file serving
+  ]);
 
-  // Daftarkan strategy jwt
+  // Configure static file serving for images
+  server.route({
+    method: 'GET',
+    path: '/gambar_data/{param*}',
+    handler: {
+      directory: {
+        path: path.join(__dirname, '../public/gambar_data'), // Adjust path as needed
+        redirectToSlash: true,
+        index: false
+      }
+    }
+  });
+
+  // Register jwt strategy
   server.auth.strategy('jwt', 'jwt', {
-    keys: process.env.JWT_SECRET, // pastikan .env ada JWT_SECRET
+    keys: process.env.JWT_SECRET,
     verify: {
       aud: false,
       iss: false,
@@ -36,13 +54,10 @@ const createServer = async () => {
     validate: async (artifacts, request, h) => {
       return {
         isValid: true,
-        credentials: artifacts.decoded.payload, // bisa kamu sesuaikan
+        credentials: artifacts.decoded.payload,
       };
     },
   });
-
-  // Kalau mau semua route pakai jwt auth secara default:
-  // server.auth.default('jwt');
 
   // Register route groups
   await server.register([

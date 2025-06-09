@@ -20,10 +20,12 @@
   "homepage": "https://github.com/Capstone-Project-CodingCamp2025/back-end#readme",
   "dependencies": {
     "@hapi/hapi": "^21.4.0",
+    "@hapi/inert": "^7.1.0",
     "@hapi/jwt": "^3.2.0",
     "@tensorflow/tfjs-node": "^4.22.0",
     "axios": "^1.9.0",
     "bcrypt": "^6.0.0",
+    "compute-cosine-similarity": "^1.1.0",
     "cors": "^2.8.5",
     "csv-parser": "^3.2.0",
     "dotenv": "^16.5.0",
@@ -31,6 +33,7 @@
     "fs-extra": "^11.3.0",
     "jsonwebtoken": "^9.0.2",
     "mysql": "^2.18.1",
-    "mysql2": "^3.14.1"
+    "mysql2": "^3.14.1",
+    "numpy-parser": "^1.2.3"
   }
 }

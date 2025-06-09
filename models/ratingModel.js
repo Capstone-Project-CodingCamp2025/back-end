@@ -24,7 +24,7 @@ async function saveInitialRatings(userId, ratings) {
   console.log('Validated ratings:', JSON.stringify(validatedRatings, null, 2));
   
   const sql = `
-    INSERT INTO user_ratings (user_id, place_id, rating, visited_at)
+    INSERT INTO user_preferences (user_id, place_id, rating, visited_at)
     VALUES (?, ?, ?, NOW())
     ON DUPLICATE KEY UPDATE
       rating = VALUES(rating),
@@ -49,7 +49,7 @@ async function saveInitialRatings(userId, ratings) {
     
     // Verifikasi hasil penyimpanan
     const [verifyRows] = await pool.query(
-      'SELECT user_id, place_id, rating, visited_at FROM user_ratings WHERE user_id = ? ORDER BY visited_at DESC',
+      'SELECT user_id, place_id, rating, visited_at FROM user_preferences WHERE user_id = ? ORDER BY visited_at DESC',
       [userId]
     );
     console.log('📊 Verified saved ratings for user', userId, ':', JSON.stringify(verifyRows, null, 2));
@@ -73,7 +73,7 @@ async function countUserRatings(userId) {
   
   try {
     const [rows] = await pool.query(
-      'SELECT COUNT(*) AS cnt FROM user_ratings WHERE user_id = ?',
+      'SELECT COUNT(*) AS cnt FROM user_preferences WHERE user_id = ?',
       [userId]
     );
     const count = rows[0]?.cnt || 0;
@@ -96,7 +96,7 @@ async function getUserRatings(userId) {
   
   try {
     const [rows] = await pool.query(
-      'SELECT place_id, rating FROM user_ratings WHERE user_id = ? ORDER BY visited_at DESC',
+      'SELECT place_id, rating FROM user_preferences WHERE user_id = ? ORDER BY visited_at DESC',
       [userId]
     );
     console.log('📊 User ratings retrieved:', JSON.stringify(rows, null, 2));
@@ -112,7 +112,7 @@ async function getAllRatings() {
   
   try {
     const [rows] = await pool.query(
-      'SELECT user_id, place_id, rating FROM user_ratings ORDER BY visited_at DESC'
+      'SELECT user_id, place_id, rating FROM user_preferences ORDER BY visited_at DESC'
     );
     console.log('📊 Total ratings in database:', rows.length);
     console.log('Sample ratings:', JSON.stringify(rows.slice(0, 5), null, 2));
@@ -129,8 +129,8 @@ async function getPlaceDetails(placeId) {
   try {
     // Ambil detail tempat dari tabel place
     const sql = `
-      SELECT id, nama_tempat, rating_avg, jumlah_ulasan, alamat, 
-             link, thumbnail, kategori, content
+      SELECT id, nama_tempat, deskripsi, alamat, thumbnail, gambar,
+             rating, jumlah_ulasan, kategori, link
       FROM places
       WHERE id = ?`;
     
@@ -143,7 +143,7 @@ async function getPlaceDetails(placeId) {
     const place = {
       id: rows[0].id,
       nama_tempat: rows[0].nama_tempat,
-      rating_avg: parseFloat(rows[0].rating_avg) || 0,
+      rating: parseFloat(rows[0].rating) || 0,
       jumlah_ulasan: rows[0].jumlah_ulasan || 0,
       alamat: rows[0].alamat,
       link: rows[0].link,
