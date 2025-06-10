@@ -37,7 +37,7 @@ fs.createReadStream('/mnt/d/Projek/Capstone DBS/machine-learning/etl_pipeline/tr
           user_id INT NOT NULL,
           place_id INT NOT NULL,
           rating INT DEFAULT NULL,
-          liked TINYINT(1) DEFAULT NULL,
+          bookmarked TINYINT(1) DEFAULT NULL,
           visited_at DATE DEFAULT NULL,
           created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
           INDEX (user_id),

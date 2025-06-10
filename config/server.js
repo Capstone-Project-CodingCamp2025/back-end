@@ -1,11 +1,12 @@
 require('dotenv').config();
 const Hapi = require('@hapi/hapi');
 const Jwt = require('@hapi/jwt');
-const Inert = require('@hapi/inert'); // ADD THIS for static files
+const Inert = require('@hapi/inert');
 const path = require('path');
 
 const authRoutes = require('../routes/authRoutes');
 const ratingRoutes = require('../routes/ratingRoutes');
+const reviewRoutes = require('../routes/reviewRoutes'); // TAMBAHKAN INI
 const recommendationRoutes = require('../routes/recommendationRoutes');
 
 const createServer = async () => {
@@ -14,8 +15,10 @@ const createServer = async () => {
     host: 'localhost',
     routes: {
       cors: {
-        origin: ['http://localhost:5175'],
-        credentials: true
+        origin: ['http://localhost:5173'],
+        credentials: true,
+        headers: ['Accept', 'Authorization', 'Content-Type', 'If-None-Match'], // TAMBAHKAN HEADERS
+        additionalHeaders: ['X-Requested-With'] // TAMBAHKAN INI
       }
     },
   });
@@ -23,7 +26,7 @@ const createServer = async () => {
   // Register plugins
   await server.register([
     Jwt,
-    Inert // ADD THIS - needed for static file serving
+    Inert
   ]);
 
   // Configure static file serving for images
@@ -32,7 +35,7 @@ const createServer = async () => {
     path: '/gambar_data/{param*}',
     handler: {
       directory: {
-        path: path.join(__dirname, '../public/gambar_data'), // Adjust path as needed
+        path: path.join(__dirname, '../public/gambar_data'),
         redirectToSlash: true,
         index: false
       }
@@ -63,6 +66,7 @@ const createServer = async () => {
   await server.register([
     { plugin: authRoutes },
     { plugin: ratingRoutes },
+    { plugin: reviewRoutes }, // TAMBAHKAN INI
     { plugin: recommendationRoutes },
   ]);
 

@@ -160,10 +160,46 @@ async function getPlaceDetails(placeId) {
   }
 }
 
+async function getPlaceReviews(placeId) {
+  console.log('=== GET PLACE REVIEWS FROM RATING MODEL ===');
+  console.log('Place ID:', placeId);
+  
+  try {
+    const sql = `
+      SELECT ur.id, ur.user_id, ur.place_id, ur.rating, ur.comment as review, ur.created_at,
+             u.name as userName, u.username
+      FROM user_reviews ur
+      LEFT JOIN users u ON ur.user_id = u.id
+      WHERE ur.place_id = ?
+      ORDER BY ur.created_at DESC
+    `;
+    
+    const [rows] = await pool.query(sql, [placeId]);
+    
+    const reviews = rows.map(row => ({
+      id: row.id,
+      user_id: row.user_id,
+      place_id: row.place_id,
+      rating: parseFloat(row.rating),
+      review: row.review,
+      userName: row.userName || row.username || 'Anonim',
+      name: row.userName || row.username || 'Anonim',
+      created_at: row.created_at
+    }));
+    
+    console.log('✅ Retrieved', reviews.length, 'reviews from rating model');
+    return reviews;
+  } catch (error) {
+    console.error('❌ Error getting place reviews:', error);
+    throw error;
+  }
+}
+
 module.exports = {
   saveInitialRatings,
   countUserRatings,
   getUserRatings,
   getAllRatings,
-  getPlaceDetails  // Changed from getPlaceRatings to getPlaceDetails
+  getPlaceDetails,
+  getPlaceReviews
 };
