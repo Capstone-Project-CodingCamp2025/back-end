@@ -1,91 +1,94 @@
-// services/cfService.js - FIXED VERSION
 const tf = require('@tensorflow/tfjs-node');
 const path = require('path');
+const placeModel = require('../models/placeModel');
 const encoders = require('../data/cf/encoders.json');
-const { getFirstImageUrl, getImageUrlsFromDatabase, formatPrice } = require('../utils/imageHelpers');
-
 const { user_to_user_encoded, place_to_place_encoded } = encoders;
 
-// Load CF model sekali
-const MODEL_PATH = path.join(__dirname, '../data/cf/tfjs_model/model.json');
-let cfModel;
-(async () => {
-  console.log('Loading CF model from', MODEL_PATH);
-  cfModel = await tf.loadGraphModel(`file://${MODEL_PATH}`);
-  console.log('✅ CF model loaded');
-})();
+// Load CF model once
+tf.loadGraphModel(`file://${path.join(__dirname, '../data/cf/tfjs_model/model.json')}`)
+  .then(model => {
+    cfModel = model;
+    console.log('✅ CF model loaded');
+  })
+  .catch(err => {
+    console.error('❌ Failed to load CF model:', err);
+  });
 
-// Helper function to format place data like database
-function formatPlaceForFrontend(place) {
-  const mainImage = getFirstImageUrl(place.gambar || place.fullImage);
-  const allImages = getImageUrlsFromDatabase(place.gambar || place.fullImage);
-  
-  return {
-    id: place.id,
-    name: place.nama_tempat || place.name,
-    description: place.deskripsi || place.description || 'Deskripsi tidak tersedia',
-    location: place.alamat || place.location,
-    image: mainImage,        // ✅ Main image for display
-    gambar: mainImage,       // ✅ For compatibility with frontend
-    thumbnail: place.thumbnail,
-    allImages: allImages,    // ✅ All available images
-    fullImage: place.gambar || place.fullImage, // Original database string
-    rating: parseFloat(place.rating) || 0,
-    reviewCount: parseInt(place.jumlah_ulasan || place.reviewCount) || 0,
-    price: formatPrice(place.kategori || place.category),
-    category: place.kategori || place.category,
-    link: place.link || '',
-    cfScore: place.cfScore || 0  // CF prediction score
-  };
-}
+let cfModel;
 
 /**
  * Compute CF recommendations via TFJS model.
  * @param {number} userId
- * @param {Array<{user_id:number,place_id:number,rating:number}>} allRatings
+ * @param {Array<{user_id:number, place_id:number, rating:number}>} allRatings
  * @param {number} topN
- * @returns {Promise<Array>}  array of formatted place objects
+ * @returns {Promise<Array>} array of formatted place objects
  */
 async function computeCF(userId, allRatings, topN = 5) {
   if (!cfModel) {
     throw new Error('CF model belum siap—tunggu load selesai.');
   }
 
-  // Unique place IDs
-  const placeIds = Array.from(new Set(allRatings.map(r => r.place_id)));
+  // 1. Load all places to build mapping place_id -> index
+  const allPlaces = await placeModel.getAllPlaces();
+  if (!allPlaces || allPlaces.length === 0) {
+    console.log('❌ No places found in database for CF mapping');
+    return [];
+  }
+  const id2idx = {};
+  allPlaces.forEach((p, idx) => {
+    id2idx[p.id] = idx;
+  });
 
-  // Encode user
+  // 2. Prepare candidates: places user hasn't rated
+  const ratedSet = new Set(
+    allRatings.filter(r => r.user_id === userId).map(r => r.place_id)
+  );
+  // Filter out any candidate without encoder mapping
+  const candidates = allPlaces
+    .map(p => p.id)
+    .filter(pid => !ratedSet.has(pid) && place_to_place_encoded[pid] != null);
+  if (candidates.length === 0) {
+    console.log('❌ No valid candidates for CF after filtering unmapped');
+    return [];
+  }
+
+  // 3. Encode user and places
   const userEnc = user_to_user_encoded[userId];
   if (userEnc == null) {
     throw new Error(`User ${userId} tidak ada di encoder.`);
   }
 
-  // Kandidat: belum dirating user
-  const ratedSet = new Set(
-    allRatings.filter(r => r.user_id === userId).map(r => r.place_id)
-  );
-  const candidates = placeIds.filter(pid => !ratedSet.has(pid));
-  if (candidates.length === 0) return [];
+  // Build input array only for mapped candidates
+  const inputArray = candidates.map(pid => [
+    userEnc,
+    place_to_place_encoded[pid]
+  ]);
 
-  // Encode input
-  const inputArray = candidates.map(pid => {
-    const placeEnc = place_to_place_encoded[pid];
-    return [userEnc, placeEnc];
-  });
-
-  // Predict
+  // 4. Create input tensor and predict
   const inputTensor = tf.tensor2d(inputArray, [inputArray.length, 2], 'float32');
   const predsTensor = cfModel.predict(inputTensor);
-  const preds = await predsTensor.data();
+  const predsData = await predsTensor.data();
   tf.dispose([inputTensor, predsTensor]);
 
-  // Pair, sort, slice topN - return place IDs with scores
-  const scored = candidates
-    .map((pid, i) => ({ pid, cfScore: preds[i] }))
-    .sort((a, b) => b.cfScore - a.cfScore)
-    .slice(0, topN);
+  // 5. Pair candidates with scores
+  const scored = candidates.map((pid, i) => ({ pid, cfScore: predsData[i] }));
 
-  return scored;
+  // 6. Sort by score desc and take topN
+  const topScored = scored.sort((a, b) => b.cfScore - a.cfScore).slice(0, topN);
+
+  // 7. Map back to place objects with details and images
+  const recommendations = topScored
+    .map(({ pid, cfScore }) => {
+      const place = allPlaces.find(p => p.id === pid);
+      return {
+        ...place,
+        cfScore
+      };
+    })
+    .filter(Boolean);
+
+  console.log('CF recommendations result:', recommendations.length);
+  return recommendations;
 }
 
-module.exports = { computeCF, formatPlaceForFrontend };
+module.exports = { computeCF };

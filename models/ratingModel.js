@@ -168,7 +168,7 @@ async function getPlaceReviews(placeId) {
     const sql = `
       SELECT ur.id, ur.user_id, ur.place_id, ur.rating, ur.comment as review, ur.created_at,
              u.name as userName, u.username
-      FROM user_reviews ur
+      FROM user_preferences ur
       LEFT JOIN users u ON ur.user_id = u.id
       WHERE ur.place_id = ?
       ORDER BY ur.created_at DESC

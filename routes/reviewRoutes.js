@@ -73,7 +73,7 @@ exports.plugin = {
     // Delete review
     server.route({
       method: 'DELETE',
-      path: '/api/reviews/{reviewId}',
+      path: '/api/reviews/place/{placeId}',
       handler: reviewView.deleteReview,
       options: { 
         auth: 'jwt',

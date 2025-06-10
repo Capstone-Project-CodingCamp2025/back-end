@@ -20,12 +20,6 @@ exports.plugin = {
     // Register routes
     server.route([
       { 
-        method: 'POST', 
-        path: '/api/initial-ratings', 
-        handler: recPres.initialRatings, 
-        options: { auth: 'jwt' } 
-      },
-      { 
         method: 'GET',  
         path: '/api/recommendations',       
         handler: recPres.recommendations,   
@@ -37,25 +31,6 @@ exports.plugin = {
         handler: recPres.popular,          
         options: { auth: false } 
       },
-      // ADD THIS NEW ROUTE for getAllPlaces
-      { 
-        method: 'GET',  
-        path: '/api/places',
-        handler: recPres.getAllPlaces,          
-        options: { auth: false } 
-      },
-      { 
-        method: 'GET',  
-        path: '/api/places/{id}',
-        handler: recPres.getPopularId,          
-        options: { auth: false } 
-      },
-      {
-        method: 'GET',  
-        path: '/api/places/{id}/details',
-        handler: recPres.getPlaceRatings,
-        options: { auth: false }
-      }
     ]);
     
     console.log('✅ Recommendation routes and methods registered');

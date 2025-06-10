@@ -112,32 +112,13 @@ exports.getUserReviews = async (request, h) => {
 
 // Delete review
 exports.deleteReview = async (request, h) => {
-  console.log('=== DELETE REVIEW VIEW DEBUG ===');
-  console.log('Auth credentials:', request.auth?.credentials);
-  console.log('Request params:', request.params);
-  
   try {
-    if (!request.auth || !request.auth.credentials) {
-      return h.response({ message: 'Authentication required.' }).code(401);
-    }
-    
     const userId = request.auth.credentials.id;
-    const reviewId = request.params.reviewId;
-    
-    if (!reviewId) {
-      return h.response({ message: 'Review ID wajib diisi.' }).code(400);
-    }
-    
-    const result = await reviewModel.deleteReview(reviewId, userId);
-    
-    console.log('✅ Review deleted successfully');
+    const placeId = request.params.placeId;
+
+    const result = await reviewModel.deleteReview(userId, placeId);
     return h.response(result).code(200);
-    
   } catch (error) {
-    console.error('❌ Error in deleteReview view:', error);
-    return h.response({ 
-      message: 'Gagal menghapus ulasan.', 
-      error: error.message 
-    }).code(500);
+    return h.response({ message: 'Gagal menghapus ulasan.', error: error.message }).code(500);
   }
 };

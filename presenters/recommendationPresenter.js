@@ -1,43 +1,7 @@
-const { saveInitialRatings, countUserRatings, getUserRatings } = require('../models/ratingModel');
+const { countUserRatings, getUserRatings } = require('../models/ratingModel');
 const { getCBFRecommendations, getCFRecommendations, getPopular } = require('../services/recommendationService');
 const { getPopularId: getPlaceById, getAllPlaces: getAllPlacesModel } = require('../models/placeModel');
 const { getPlaceDetails } = require('../models/ratingModel');
-
-async function initialRatings(request, h) {
-  console.log('=== INITIAL RATINGS PRESENTER DEBUG ===');
-  console.log('Auth credentials:', request.auth?.credentials);
-  console.log('Request payload:', JSON.stringify(request.payload, null, 2));
-  
-  if (!request.auth || !request.auth.credentials) {
-    console.log('❌ No authentication found');
-    return h.response({ message: 'Authentication required.' }).code(401);
-  }
-  
-  const userId = request.auth.credentials.id;
-  const ratings = request.payload;
-  
-  console.log('User ID:', userId);
-  console.log('Ratings payload:', JSON.stringify(ratings, null, 2));
-  
-  if (!userId) {
-    console.log('❌ No user ID found');
-    return h.response({ message: 'User ID not found.' }).code(400);
-  }
-  
-  if (!Array.isArray(ratings) || ratings.length < 3) {
-    console.log('❌ Invalid ratings array');
-    return h.response({ message: 'Minimal beri rating ke 3 tempat.' }).code(400);
-  }
-  
-  try {
-    await saveInitialRatings(userId, ratings);
-    console.log('✅ Ratings saved successfully');
-    return h.response({ message: 'Ratings saved.' }).code(200);
-  } catch (err) {
-    console.error('❌ Error saving ratings:', err);
-    return h.response({ message: 'Gagal menyimpan rating.' }).code(500);
-  }
-}
 
 async function recommendations(request, h) {
   console.log('=== RECOMMENDATIONS PRESENTER DEBUG ===');
@@ -127,7 +91,6 @@ async function popular(request, h) {
   }
 }
 
-// NEW: Add getAllPlaces handler
 async function getAllPlaces(request, h) {
   console.log('=== GET ALL PLACES PRESENTER DEBUG ===');
   
@@ -198,10 +161,9 @@ async function getPlaceRatings(request, h) {
 }
 
 module.exports = { 
-  initialRatings, 
   recommendations, 
   popular, 
-  getAllPlaces,  // ADD THIS EXPORT
+  getAllPlaces,
   getPopularId, 
   getPlaceRatings 
 };

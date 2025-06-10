@@ -1,63 +1,85 @@
 const pool = require('../config/db');
 
-async function submitReview(userId, placeId, rating, comment, userName) {
-  console.log('=== SUBMIT REVIEW DEBUG ===');
-  console.log('User ID:', userId, 'Place ID:', placeId, 'Rating:', rating, 'UserName:', userName);
+// Submit review baru ke user_preferences
+async function submitReview(userId, placeId, rating, review, userName) {
+  console.log('=== SUBMIT REVIEW MODEL DEBUG ===');
+  console.log('Input:', { userId, placeId, rating, review, userName });
   
   try {
     // Cek apakah user sudah pernah review tempat ini
     const [existingReview] = await pool.query(
-      'SELECT id FROM user_reviews WHERE user_id = ? AND place_id = ?',
+      'SELECT id FROM user_preferences WHERE user_id = ? AND place_id = ?',
       [userId, placeId]
     );
     
     if (existingReview.length > 0) {
-      throw new Error('Anda sudah pernah memberikan ulasan untuk destinasi ini.');
+      // Update existing review
+      const sql = `
+        UPDATE user_preferences 
+        SET rating = ?, comment = ?, visited_at = NOW(), created_at = NOW()
+        WHERE user_id = ? AND place_id = ?
+      `;
+      
+      await pool.query(sql, [rating, review, userId, placeId]);
+      
+      // Return updated review
+      const [updatedReview] = await pool.query(`
+        SELECT up.id, up.user_id, up.place_id, up.rating, up.comment as review, 
+               up.created_at, u.username
+        FROM user_preferences up
+        LEFT JOIN users u ON up.user_id = u.id
+        WHERE up.user_id = ? AND up.place_id = ?
+      `, [userId, placeId]);
+      
+      console.log('✅ Review updated successfully');
+      return {
+        id: updatedReview[0].id,
+        user_id: userId,
+        place_id: parseInt(placeId),
+        rating: parseFloat(rating),
+        review: review,
+        userName: userName || updatedReview[0].userName || 'Anonim',
+        created_at: updatedReview[0].created_at
+      };
+    } else {
+      // Insert new review
+      const sql = `
+        INSERT INTO user_preferences (user_id, place_id, rating, comment, visited_at, created_at)
+        VALUES (?, ?, ?, ?, NOW(), NOW())
+      `;
+      
+      const [result] = await pool.query(sql, [userId, placeId, rating, review]);
+      
+      console.log('✅ New review inserted successfully');
+      return {
+        id: result.insertId,
+        user_id: userId,
+        place_id: parseInt(placeId),
+        rating: parseFloat(rating),
+        review: review,
+        userName: userName || 'Anonim',
+        created_at: new Date()
+      };
     }
-    
-    // Insert review baru
-    const sql = `
-      INSERT INTO user_reviews (user_id, place_id, rating, comment, created_at)
-      VALUES (?, ?, ?, ?, NOW())
-    `;
-    
-    const [result] = await pool.query(sql, [userId, placeId, rating, comment]);
-    
-    console.log('✅ Review inserted with ID:', result.insertId);
-    
-    // Return review data lengkap
-    const newReview = {
-      id: result.insertId,
-      user_id: userId,
-      place_id: placeId,
-      rating: parseFloat(rating),
-      comment: comment,
-      userName: userName,
-      created_at: new Date()
-    };
-    
-    // Update rata-rata rating tempat
-    await updatePlaceRating(placeId);
-    
-    return newReview;
   } catch (error) {
-    console.error('❌ Error submitting review:', error);
+    console.error('❌ Error in submitReview model:', error);
     throw error;
   }
 }
 
+// Get reviews untuk tempat tertentu
 async function getReviewsByPlaceId(placeId) {
-  console.log('=== GET REVIEWS DEBUG ===');
+  console.log('=== GET REVIEWS BY PLACE ID MODEL DEBUG ===');
   console.log('Place ID:', placeId);
   
   try {
     const sql = `
-      SELECT ur.id, ur.user_id, ur.place_id, ur.rating, ur.comment, ur.created_at,
-             u.name as userName, u.username
-      FROM user_reviews ur
-      LEFT JOIN users u ON ur.user_id = u.id
-      WHERE ur.place_id = ?
-      ORDER BY ur.created_at DESC
+      SELECT up.id, up.user_id, up.place_id, up.rating, up.comment as review, 
+             up.created_at, u.username
+      FROM user_preferences up
+      LEFT JOIN users u ON up.user_id = u.id
+      WHERE up.place_id = ? AND up.comment IS NOT NULL AND up.comment != ''
+      ORDER BY up.created_at DESC
     `;
     
     const [rows] = await pool.query(sql, [placeId]);
@@ -67,66 +89,36 @@ async function getReviewsByPlaceId(placeId) {
       user_id: row.user_id,
       place_id: row.place_id,
       rating: parseFloat(row.rating),
-      review: row.comment, // Menggunakan 'review' untuk kompatibilitas frontend
-      comment: row.comment,
+      review: row.review,
       userName: row.userName || row.username || 'Anonim',
       name: row.userName || row.username || 'Anonim',
       created_at: row.created_at
     }));
     
     console.log('✅ Retrieved', reviews.length, 'reviews for place', placeId);
+    console.log('Sample reviews:', reviews.slice(0, 2));
+    
     return reviews;
   } catch (error) {
-    console.error('❌ Error getting reviews:', error);
+    console.error('❌ Error getting reviews by place id:', error);
     throw error;
   }
 }
 
-async function updatePlaceRating(placeId) {
-  console.log('=== UPDATE PLACE RATING DEBUG ===');
-  console.log('Place ID:', placeId);
-  
-  try {
-    // Hitung rata-rata rating dan jumlah ulasan
-    const [stats] = await pool.query(`
-      SELECT 
-        AVG(rating) as avgRating,
-        COUNT(*) as reviewCount
-      FROM user_reviews 
-      WHERE place_id = ?
-    `, [placeId]);
-    
-    const avgRating = parseFloat(stats[0].avgRating) || 0;
-    const reviewCount = parseInt(stats[0].reviewCount) || 0;
-    
-    // Update tabel places
-    await pool.query(`
-      UPDATE places 
-      SET rating = ?, jumlah_ulasan = ?
-      WHERE id = ?
-    `, [avgRating.toFixed(1), reviewCount, placeId]);
-    
-    console.log('✅ Updated place rating:', avgRating.toFixed(1), 'with', reviewCount, 'reviews');
-    
-    return { avgRating, reviewCount };
-  } catch (error) {
-    console.error('❌ Error updating place rating:', error);
-    throw error;
-  }
-}
-
+// Get reviews milik user
 async function getUserReviews(userId) {
-  console.log('=== GET USER REVIEWS DEBUG ===');
+  console.log('=== GET USER REVIEWS MODEL DEBUG ===');
   console.log('User ID:', userId);
   
   try {
     const sql = `
-      SELECT ur.id, ur.user_id, ur.place_id, ur.rating, ur.comment, ur.created_at,
-             p.nama_tempat as placeName
-      FROM user_reviews ur
-      LEFT JOIN places p ON ur.place_id = p.id
-      WHERE ur.user_id = ?
-      ORDER BY ur.created_at DESC
+      SELECT up.id, up.user_id, up.place_id, up.rating, up.comment as review, 
+             up.created_at, p.nama_tempat as placeName
+      FROM user_preferences up
+      LEFT JOIN users u ON up.user_id = u.id
+      LEFT JOIN places p ON up.place_id = p.id
+      WHERE up.user_id = ? AND up.comment IS NOT NULL AND up.comment != ''
+      ORDER BY up.created_at DESC
     `;
     
     const [rows] = await pool.query(sql, [userId]);
@@ -136,7 +128,8 @@ async function getUserReviews(userId) {
       user_id: row.user_id,
       place_id: row.place_id,
       rating: parseFloat(row.rating),
-      comment: row.comment,
+      review: row.review,
+      userName: row.userName || 'Anonim',
       placeName: row.placeName,
       created_at: row.created_at
     }));
@@ -149,31 +142,26 @@ async function getUserReviews(userId) {
   }
 }
 
-async function deleteReview(reviewId, userId) {
-  console.log('=== DELETE REVIEW DEBUG ===');
-  console.log('Review ID:', reviewId, 'User ID:', userId);
+// Delete review
+async function deleteReview(userId, placeId) {
+  console.log('=== DELETE REVIEW MODEL DEBUG ===');
+  console.log('User ID:', userId, 'Place ID:', placeId);
   
   try {
-    // Cek apakah review milik user
-    const [reviewCheck] = await pool.query(
-      'SELECT place_id FROM user_reviews WHERE id = ? AND user_id = ?',
-      [reviewId, userId]
-    );
+    const sql = `
+      UPDATE user_preferences 
+      SET comment = NULL 
+      WHERE user_id = ? AND place_id = ?
+    `;
     
-    if (reviewCheck.length === 0) {
-      throw new Error('Review tidak ditemukan atau bukan milik Anda.');
+    const [result] = await pool.query(sql, [userId, placeId]);
+    
+    if (result.affectedRows === 0) {
+      throw new Error('Review tidak ditemukan atau Anda tidak memiliki akses untuk menghapusnya.');
     }
     
-    const placeId = reviewCheck[0].place_id;
-    
-    // Hapus review
-    await pool.query('DELETE FROM user_reviews WHERE id = ? AND user_id = ?', [reviewId, userId]);
-    
-    // Update rating tempat
-    await updatePlaceRating(placeId);
-    
     console.log('✅ Review deleted successfully');
-    return { success: true, message: 'Review berhasil dihapus' };
+    return { message: 'Review berhasil dihapus.' };
   } catch (error) {
     console.error('❌ Error deleting review:', error);
     throw error;
@@ -183,7 +171,6 @@ async function deleteReview(reviewId, userId) {
 module.exports = {
   submitReview,
   getReviewsByPlaceId,
-  updatePlaceRating,
   getUserReviews,
   deleteReview
 };

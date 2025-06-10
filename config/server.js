@@ -1,3 +1,4 @@
+// Update file server utama Anda (biasanya server.js atau index.js)
 require('dotenv').config();
 const Hapi = require('@hapi/hapi');
 const Jwt = require('@hapi/jwt');
@@ -6,8 +7,10 @@ const path = require('path');
 
 const authRoutes = require('../routes/authRoutes');
 const ratingRoutes = require('../routes/ratingRoutes');
-const reviewRoutes = require('../routes/reviewRoutes'); // TAMBAHKAN INI
+const reviewRoutes = require('../routes/reviewRoutes');
 const recommendationRoutes = require('../routes/recommendationRoutes');
+const placeRoutes = require('../routes/placeRoutes');
+const bookmarkRoutes = require('../routes/bookmarkRoutes'); // TAMBAHKAN INI
 
 const createServer = async () => {
   const server = Hapi.server({
@@ -17,8 +20,8 @@ const createServer = async () => {
       cors: {
         origin: ['http://localhost:5173'],
         credentials: true,
-        headers: ['Accept', 'Authorization', 'Content-Type', 'If-None-Match'], // TAMBAHKAN HEADERS
-        additionalHeaders: ['X-Requested-With'] // TAMBAHKAN INI
+        headers: ['Accept', 'Authorization', 'Content-Type', 'If-None-Match'],
+        additionalHeaders: ['X-Requested-With']
       }
     },
   });
@@ -66,8 +69,10 @@ const createServer = async () => {
   await server.register([
     { plugin: authRoutes },
     { plugin: ratingRoutes },
-    { plugin: reviewRoutes }, // TAMBAHKAN INI
+    { plugin: reviewRoutes },
     { plugin: recommendationRoutes },
+    { plugin: placeRoutes },
+    { plugin: bookmarkRoutes }, // TAMBAHKAN INI
   ]);
 
   return server;

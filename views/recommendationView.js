@@ -1,10 +1,5 @@
 const recommendationPresenter = require('../presenters/recommendationPresenter');
 
-const getRecommendationsByText = async (query) => {
-  const result = await placeService.getRecommendationsByText(query); // kamu buat di model
-  return result;
-};
-
 exports.getRecommendations = async (req, res) => {
   try {
     const user = req.user || null;
