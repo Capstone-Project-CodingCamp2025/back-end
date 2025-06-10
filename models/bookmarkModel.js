@@ -77,7 +77,7 @@ const BookmarkModel = {
           ub.created_at as bookmarked_at,
           p.nama_tempat as name,
           p.alamat as location,
-          p.gambar as image,
+          p.gambar as image_raw,
           p.rating,
           p.kategori as category,
           p.deskripsi as description
@@ -88,14 +88,71 @@ const BookmarkModel = {
       `;
       
       const [rows] = await db.execute(query, [userId]);
+      
+      console.log('=== BOOKMARK MODEL DEBUG ===');
+      console.log('Raw bookmark rows:', rows.length);
+      if (rows.length > 0) {
+        console.log('Sample raw data:', {
+          place_id: rows[0].place_id,
+          name: rows[0].name,
+          image_raw: rows[0].image_raw,
+          location: rows[0].location
+        });
+      }
+      
       return rows.map(r => {
-        const firstImage = getFirstImageUrl(r.gambar);
-        return {
+        // FIXED: Better image handling with debugging
+        let processedImage = '/api/placeholder/400/300'; // default
+        
+        try {
+          if (r.image_raw) {
+            console.log('Processing image for place:', r.place_id, 'Raw:', r.image_raw);
+            
+            // Try to get first image using helper
+            const firstImage = getFirstImageUrl(r.image_raw);
+            if (firstImage && firstImage !== '/api/placeholder/400/300') {
+              processedImage = firstImage;
+              console.log('✅ Image processed successfully:', processedImage);
+            } else {
+              console.log('⚠️ Image helper returned default/null for:', r.image_raw);
+              // Fallback: try to process manually
+              if (typeof r.image_raw === 'string') {
+                // If it's JSON string, try to parse
+                try {
+                  const parsed = JSON.parse(r.image_raw);
+                  if (Array.isArray(parsed) && parsed.length > 0) {
+                    processedImage = parsed[0];
+                  } else if (typeof parsed === 'string') {
+                    processedImage = parsed;
+                  }
+                } catch {
+                  // If not JSON, treat as direct URL
+                  processedImage = r.image_raw;
+                }
+              }
+            }
+          } else {
+            console.log('⚠️ No image_raw data for place:', r.place_id);
+          }
+        } catch (imageError) {
+          console.error('❌ Error processing image for place:', r.place_id, imageError);
+        }
+        
+        const result = {
           ...r,
-          image: firstImage,
-          gambar: r.gambar,          // kalau butuh
-          allImages: getImageUrlsFromDatabase(r.gambar),
+          image: processedImage,
+          gambar: r.image_raw, // Keep original for debugging
+          allImages: r.image_raw ? getImageUrlsFromDatabase(r.image_raw) : [],
         };
+        
+        console.log('Final processed bookmark:', {
+          place_id: result.place_id,
+          name: result.name,
+          image: result.image,
+          image_raw: result.gambar
+        });
+        
+        return result;
       });
 
     } catch (error) {
