@@ -1,4 +1,4 @@
-// Update file server utama Anda (biasanya server.js atau index.js)
+// server.js - Update file server utama Anda
 require('dotenv').config();
 const Hapi = require('@hapi/hapi');
 const Jwt = require('@hapi/jwt');
@@ -6,11 +6,12 @@ const Inert = require('@hapi/inert');
 const path = require('path');
 
 const authRoutes = require('../routes/authRoutes');
+const resetPasswordRoutes = require('../routes/resetPasswordRoutes');
 const ratingRoutes = require('../routes/ratingRoutes');
 const reviewRoutes = require('../routes/reviewRoutes');
 const recommendationRoutes = require('../routes/recommendationRoutes');
 const placeRoutes = require('../routes/placeRoutes');
-const bookmarkRoutes = require('../routes/bookmarkRoutes'); // TAMBAHKAN INI
+const bookmarkRoutes = require('../routes/bookmarkRoutes');
 
 const createServer = async () => {
   const server = Hapi.server({
@@ -68,11 +69,12 @@ const createServer = async () => {
   // Register route groups
   await server.register([
     { plugin: authRoutes },
+    { plugin: resetPasswordRoutes },
     { plugin: ratingRoutes },
     { plugin: reviewRoutes },
     { plugin: recommendationRoutes },
     { plugin: placeRoutes },
-    { plugin: bookmarkRoutes }, // TAMBAHKAN INI
+    { plugin: bookmarkRoutes },
   ]);
 
   return server;
