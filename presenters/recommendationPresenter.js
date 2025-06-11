@@ -5,18 +5,25 @@ const { getPlaceDetails } = require('../models/ratingModel');
 
 async function recommendations(request, h) {
   console.log('=== RECOMMENDATIONS PRESENTER DEBUG ===');
+  console.log('Full request auth:', JSON.stringify(request.auth, null, 2));
   console.log('Auth credentials:', request.auth?.credentials);
   
   if (!request.auth || !request.auth.credentials) {
     console.log('❌ No authentication found');
-    return h.response({ message: 'Authentication required.' }).code(401);
+    return h.response({ 
+      destinations: [],
+      message: 'Authentication required.' 
+    }).code(401);
   }
   
-  const userId = request.auth.credentials.id;
-  console.log('User ID:', userId);
+  // FIXED: Prioritaskan userId, fallback ke id
+  const userId = request.auth.credentials.userId || request.auth.credentials.id;
+  console.log('Extracted User ID:', userId);
+  console.log('Available credential fields:', Object.keys(request.auth.credentials));
   
   if (!userId) {
-    console.log('❌ No user ID found');
+    console.log('❌ No user ID found in credentials');
+    console.log('Credentials object:', request.auth.credentials);
     return h.response({ 
       destinations: [],
       message: 'User ID not found.' 
@@ -24,25 +31,55 @@ async function recommendations(request, h) {
   }
   
   try {
+    console.log('🔍 Counting user ratings for userId:', userId);
+    
+    // FIXED: Tambahkan delay kecil untuk memastikan data sudah tersimpan
+    await new Promise(resolve => setTimeout(resolve, 200));
+    
     const count = await countUserRatings(userId);
-    console.log('User ratings count:', count);
+    console.log('📊 User ratings retrieved:', count);
     
     let destinations = [];
     
     if (count < 5) {
       console.log('Using CBF (Content-Based Filtering)');
       
+      console.log('=== GET USER RATINGS DEBUG ===');
+      console.log('User ID (type, value):', typeof userId, userId);
+      
       const ratings = await getUserRatings(userId);
+      console.log('📊 User ratings retrieved:', JSON.stringify(ratings, null, 2));
       console.log('User ratings for CBF:', JSON.stringify(ratings, null, 2));
       
       if (!ratings || ratings.length === 0) {
         console.log('❌ No user ratings found');
+        
+        // FIXED: Tambahkan debug query langsung ke database
+        console.log('🔍 Direct database check for userId:', userId);
+        try {
+          const pool = require('../config/db');
+          const [directRows] = await pool.query(
+            'SELECT COUNT(*) as count FROM user_preferences WHERE user_id = ?',
+            [userId]
+          );
+          console.log('Direct DB count result:', directRows[0]);
+          
+          const [directData] = await pool.query(
+            'SELECT user_id, place_id, rating FROM user_preferences WHERE user_id = ? LIMIT 5',
+            [userId]
+          );
+          console.log('Direct DB data:', JSON.stringify(directData, null, 2));
+        } catch (dbError) {
+          console.error('Direct DB query error:', dbError);
+        }
+        
         return h.response({ 
           destinations: [],
           message: 'No ratings found. Please submit ratings first.' 
         }).code(200);
       }
       
+      console.log('✅ Found user ratings, getting CBF recommendations');
       destinations = await getCBFRecommendations(ratings, 10);
       console.log('CBF recommendations received:', destinations.length);
       

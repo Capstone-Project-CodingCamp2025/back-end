@@ -1,4 +1,4 @@
-// routes/authRoutes.js
+// routes/authRoutes.js - Fixed with complete Google OAuth routes
 const AuthPresenter = require('../presenters/authPresenter');
 
 exports.plugin = {
@@ -11,7 +11,7 @@ exports.plugin = {
         path: '/api/register',
         handler: AuthPresenter.register,
         options: {
-          auth: false, // Tidak perlu autentikasi
+          auth: false,
         }
       },
       {
@@ -19,7 +19,41 @@ exports.plugin = {
         path: '/api/login',
         handler: AuthPresenter.login,
         options: {
-          auth: false, // Tidak perlu autentikasi
+          auth: false,
+        }
+      },
+      // Google OAuth routes
+      {
+        method: 'GET',
+        path: '/api/auth/google',
+        handler: AuthPresenter.googleLogin,
+        options: {
+          auth: false,
+        }
+      },
+      {
+        method: 'GET',
+        path: '/api/auth/google/callback',
+        handler: AuthPresenter.googleCallback,
+        options: {
+          auth: false,
+        }
+      },
+      {
+        method: 'POST',
+        path: '/api/auth/google/token',
+        handler: AuthPresenter.googleTokenLogin,
+        options: {
+          auth: false,
+        }
+      },
+      // TAMBAHAN: Route yang hilang untuk Google Register
+      {
+        method: 'POST',
+        path: '/api/auth/google/register',
+        handler: AuthPresenter.googleTokenRegister,
+        options: {
+          auth: false,
         }
       },
       {
@@ -27,23 +61,23 @@ exports.plugin = {
         path: '/api/me',
         handler: AuthPresenter.getCurrentUser,
         options: {
-          auth: 'jwt', // Perlu autentikasi
+          auth: 'jwt',
         }
       },
       {
         method: 'GET',
         path: '/api/check-auth',
-        handler: AuthPresenter.checkAuthStatus, // Menggunakan method yang lebih spesifik
+        handler: AuthPresenter.checkAuthStatus,
         options: {
-          auth: false, // Tidak perlu auth untuk cek status
+          auth: false,
         }
       },
       {
         method: 'POST',
         path: '/api/logout',
-        handler: AuthPresenter.logout, // Handler yang sekarang sudah ada
+        handler: AuthPresenter.logout,
         options: {
-          auth: false, // Tidak wajib auth karena logout bisa dipanggil kapan saja
+          auth: false,
         }
       }
     ]);

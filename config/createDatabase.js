@@ -33,11 +33,16 @@ fs.createReadStream('/mnt/d/Projek/Capstone DBS/machine-learning/etl_pipeline/tr
           id INT AUTO_INCREMENT PRIMARY KEY,
           username VARCHAR(50) NOT NULL,
           email VARCHAR(100) NOT NULL,
-          password VARCHAR(255) NOT NULL,
+          password VARCHAR(255) DEFAULT NULL,
+          google_id VARCHAR(255) DEFAULT NULL,
+          profile_picture TEXT DEFAULT NULL,
+          auth_provider ENUM('local','google') DEFAULT 'local',
           created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
           updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
           INDEX (username),
-          INDEX (email)
+          INDEX (email),
+          INDEX (google_id),
+          INDEX (auth_provider)
         )
       `;
       await db.query(createUsersTableQuery);

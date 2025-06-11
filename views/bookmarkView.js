@@ -1,3 +1,4 @@
+// views/bookmarkView.js - Fixed data structure mapping
 const BookmarkView = {
   // Response untuk add bookmark
   addBookmarkResponse(bookmark) {
@@ -21,15 +22,32 @@ const BookmarkView = {
     };
   },
 
-  // Response untuk get user bookmarks
+  // FIXED: Response untuk get user bookmarks - consistent with frontend expectations
   userBookmarksResponse(bookmarks) {
     return {
       success: true,
       message: 'Bookmark berhasil diambil',
       data: bookmarks.map(bookmark => ({
+        // FIXED: Map fields to match frontend expectations
+        id: bookmark.place_id,              // Frontend expects 'id'
         bookmark_id: bookmark.bookmark_id,
         place_id: bookmark.place_id,
         bookmarked_at: bookmark.bookmarked_at,
+        
+        // FIXED: Flatten the place data structure
+        name: bookmark.name,
+        nama_tempat: bookmark.name,
+        location: bookmark.location,
+        alamat: bookmark.location,
+        image: bookmark.image,
+        gambar: bookmark.image,
+        rating: bookmark.rating,
+        category: bookmark.category,
+        kategori: bookmark.category,
+        description: bookmark.description,
+        deskripsi: bookmark.description,
+        
+        // FIXED: Keep nested structure for compatibility
         place: {
           id: bookmark.place_id,
           name: bookmark.name,

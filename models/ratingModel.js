@@ -47,9 +47,12 @@ async function saveInitialRatings(userId, ratings) {
     
     console.log('✅ All ratings saved successfully');
     
-    // Verifikasi hasil penyimpanan
+    // FIXED: Tunggu sebentar untuk memastikan data sudah committed
+    await new Promise(resolve => setTimeout(resolve, 100));
+    
+    // Verifikasi hasil penyimpanan dengan query yang lebih spesifik
     const [verifyRows] = await pool.query(
-      'SELECT user_id, place_id, rating, visited_at FROM user_preferences WHERE user_id = ? ORDER BY visited_at DESC',
+      'SELECT user_id, place_id, rating, visited_at FROM user_preferences WHERE user_id = ? ORDER BY visited_at DESC LIMIT 10',
       [userId]
     );
     console.log('📊 Verified saved ratings for user', userId, ':', JSON.stringify(verifyRows, null, 2));
@@ -72,15 +75,31 @@ async function countUserRatings(userId) {
   }
   
   try {
+    // FIXED: Gunakan parseInt untuk memastikan userId adalah number
+    const numericUserId = parseInt(userId);
+    if (isNaN(numericUserId)) {
+      console.log('❌ Invalid user ID format:', userId);
+      return 0;
+    }
+    
     const [rows] = await pool.query(
       'SELECT COUNT(*) AS cnt FROM user_preferences WHERE user_id = ?',
-      [userId]
+      [numericUserId]
     );
     const count = rows[0]?.cnt || 0;
     console.log('📊 User ratings count:', count);
-    return count;
+    
+    // FIXED: Debug query untuk melihat apakah data benar-benar ada
+    const [debugRows] = await pool.query(
+      'SELECT user_id, place_id, rating FROM user_preferences WHERE user_id = ? LIMIT 5',
+      [numericUserId]
+    );
+    console.log('📊 Sample user ratings:', JSON.stringify(debugRows, null, 2));
+    
+    return parseInt(count);
   } catch (error) {
     console.error('❌ Error counting ratings:', error);
+    console.error('Error details:', error.message);
     return 0;
   }
 }
@@ -95,14 +114,36 @@ async function getUserRatings(userId) {
   }
   
   try {
+    // FIXED: Gunakan parseInt untuk memastikan userId adalah number
+    const numericUserId = parseInt(userId);
+    if (isNaN(numericUserId)) {
+      console.log('❌ Invalid user ID format:', userId);
+      return [];
+    }
+    
     const [rows] = await pool.query(
       'SELECT place_id, rating FROM user_preferences WHERE user_id = ? ORDER BY visited_at DESC',
-      [userId]
+      [numericUserId]
     );
     console.log('📊 User ratings retrieved:', JSON.stringify(rows, null, 2));
-    return rows;
+    
+    // FIXED: Pastikan return format yang benar
+    if (!rows || rows.length === 0) {
+      console.log('❌ No user ratings found');
+      return [];
+    }
+    
+    // Format data untuk CBF
+    const formattedRatings = rows.map(row => ({
+      place_id: parseInt(row.place_id),
+      rating: parseFloat(row.rating)
+    }));
+    
+    console.log('User ratings for CBF:', JSON.stringify(formattedRatings, null, 2));
+    return formattedRatings;
   } catch (error) {
     console.error('❌ Error getting user ratings:', error);
+    console.error('Error details:', error.message);
     return [];
   }
 }
