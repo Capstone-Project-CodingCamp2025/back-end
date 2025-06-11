@@ -1,3 +1,4 @@
+// createDatabase.js
 const fs = require('fs');
 const csv = require('csv-parser');
 const db = require('./db'); // mysql2/promise
@@ -96,6 +97,25 @@ fs.createReadStream('/mnt/d/Projek/Capstone DBS/machine-learning/etl_pipeline/tr
       `;
       await db.query(createPasswordTokensQuery);
       console.log('✅ Tabel `password_reset_tokens` siap.');
+
+      // ✅ Tabel contacts
+      const createContactsTableQuery = `
+        CREATE TABLE IF NOT EXISTS contacts (
+          id INT AUTO_INCREMENT PRIMARY KEY,
+          nama VARCHAR(255) NOT NULL,
+          email VARCHAR(255) NOT NULL,
+          subjek VARCHAR(500) NOT NULL,
+          pesan TEXT NOT NULL,
+          status ENUM('unread', 'read', 'replied') DEFAULT 'unread',
+          created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+          INDEX (email),
+          INDEX (status),
+          INDEX (created_at)
+        )
+      `;
+      await db.query(createContactsTableQuery);
+      console.log('✅ Tabel `contacts` siap.');
 
       // Insert data ke tabel places
       let inserted = 0;
