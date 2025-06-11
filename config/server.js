@@ -12,6 +12,7 @@ const reviewRoutes = require('../routes/reviewRoutes');
 const recommendationRoutes = require('../routes/recommendationRoutes');
 const placeRoutes = require('../routes/placeRoutes');
 const bookmarkRoutes = require('../routes/bookmarkRoutes');
+const contactRoutes = require('../routes/contactRoutes');
 
 const createServer = async () => {
   const server = Hapi.server({
@@ -22,6 +23,8 @@ const createServer = async () => {
         origin: [
           'http://localhost:3000',  // React dev server
           'http://localhost:5173',  // Vite dev server
+          'http://localhost:5174',  // Vite dev server
+          'http://127.0.0.1:5174',  // Vite dev server
           'http://127.0.0.1:3000',
           'http://127.0.0.1:5173'
         ],
@@ -178,6 +181,7 @@ const createServer = async () => {
     { plugin: recommendationRoutes },
     { plugin: placeRoutes },
     { plugin: bookmarkRoutes },
+    { plugin: contactRoutes },
   ]);
 
   console.log('✅ Server configured with fixed JWT strategy');
