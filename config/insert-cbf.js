@@ -1,35 +1,33 @@
 const fs = require('fs');
 const csv = require('csv-parser');
-const db = require('./db'); // pastikan ini adalah mysql2/promise
+const db = require('./db'); // mysql2/promise
 const rows = [];
 
 // Baca file CSV
 fs.createReadStream('/mnt/d/Projek/Capstone DBS/machine-learning/etl_pipeline/transformed.csv')
   .pipe(csv())
-  .on('data', (row) => {
-    rows.push(row);
-  })
+  .on('data', (row) => rows.push(row))
   .on('end', async () => {
     try {
-      // Buat tabel places
+      // Tabel places
       const createPlacesTableQuery = `
         CREATE TABLE IF NOT EXISTS places (
           id INT AUTO_INCREMENT PRIMARY KEY,
-          nama_tempat VARCHAR(255),
-          deskripsi TEXT,
-          kategori VARCHAR(100),
-          rating FLOAT,
-          jumlah_ulasan INT,
-          alamat TEXT,
-          link TEXT,
-          thumbnail TEXT,
-          gambar TEXT
+          nama_tempat VARCHAR(255) DEFAULT NULL,
+          deskripsi TEXT DEFAULT NULL,
+          kategori VARCHAR(100) DEFAULT NULL,
+          rating FLOAT DEFAULT NULL,
+          jumlah_ulasan INT DEFAULT NULL,
+          alamat TEXT DEFAULT NULL,
+          link TEXT DEFAULT NULL,
+          thumbnail TEXT DEFAULT NULL,
+          gambar TEXT DEFAULT NULL
         )
       `;
       await db.query(createPlacesTableQuery);
-      console.log('Tabel `places` siap.');
+      console.log('✅ Tabel `places` siap.');
 
-      // Buat tabel users
+      // Tabel users
       const createUsersTableQuery = `
         CREATE TABLE IF NOT EXISTS users (
           id INT AUTO_INCREMENT PRIMARY KEY,
@@ -37,14 +35,15 @@ fs.createReadStream('/mnt/d/Projek/Capstone DBS/machine-learning/etl_pipeline/tr
           email VARCHAR(100) NOT NULL,
           password VARCHAR(255) NOT NULL,
           created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
           INDEX (username),
           INDEX (email)
         )
       `;
       await db.query(createUsersTableQuery);
-      console.log('Tabel `users` siap.');
+      console.log('✅ Tabel `users` siap.');
 
-      // Buat tabel user_bookmarks
+      // Tabel user_bookmarks
       const createBookmarksTableQuery = `
         CREATE TABLE IF NOT EXISTS user_bookmarks (
           id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -56,9 +55,9 @@ fs.createReadStream('/mnt/d/Projek/Capstone DBS/machine-learning/etl_pipeline/tr
         )
       `;
       await db.query(createBookmarksTableQuery);
-      console.log('Tabel `user_bookmarks` siap.');
+      console.log('✅ Tabel `user_bookmarks` siap.');
 
-      // Buat tabel user_preferences
+      // Tabel user_preferences
       const createPreferencesTableQuery = `
         CREATE TABLE IF NOT EXISTS user_preferences (
           id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -73,9 +72,27 @@ fs.createReadStream('/mnt/d/Projek/Capstone DBS/machine-learning/etl_pipeline/tr
         )
       `;
       await db.query(createPreferencesTableQuery);
-      console.log('Tabel `user_preferences` siap.');
+      console.log('✅ Tabel `user_preferences` siap.');
 
-      // Masukkan data ke tabel places
+      // Tabel password_reset_tokens
+      const createPasswordTokensQuery = `
+        CREATE TABLE IF NOT EXISTS password_reset_tokens (
+          id INT AUTO_INCREMENT PRIMARY KEY,
+          email VARCHAR(255) NOT NULL,
+          otp VARCHAR(6) NOT NULL,
+          expires_at DATETIME NOT NULL,
+          used TINYINT(1) DEFAULT 0,
+          created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+          INDEX (email),
+          INDEX (otp),
+          INDEX (expires_at)
+        )
+      `;
+      await db.query(createPasswordTokensQuery);
+      console.log('✅ Tabel `password_reset_tokens` siap.');
+
+      // Insert data ke tabel places
       let inserted = 0;
       for (const [index, row] of rows.entries()) {
         const insertQuery = `
@@ -84,27 +101,28 @@ fs.createReadStream('/mnt/d/Projek/Capstone DBS/machine-learning/etl_pipeline/tr
           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         `;
         const values = [
-          row.nama_tempat,
-          row.deskripsi,
-          row.kategori,
-          parseFloat(row.rating),
-          parseInt(row.jumlah_ulasan),
-          row.alamat,
-          row.link,
-          row.thumbnail,
-          row.gambar
+          row.nama_tempat || null,
+          row.deskripsi || null,
+          row.kategori || null,
+          parseFloat(row.rating) || null,
+          parseInt(row.jumlah_ulasan) || null,
+          row.alamat || null,
+          row.link || null,
+          row.thumbnail || null,
+          row.gambar || null
         ];
+
         try {
           await db.query(insertQuery, values);
           inserted++;
         } catch (err) {
-          console.error(`Gagal insert data baris ${index + 1}:`, err.message);
+          console.error(`❌ Gagal insert data baris ${index + 1}:`, err.message);
         }
       }
 
       console.log(`✅ Selesai insert ${inserted} data ke tabel places.`);
     } catch (err) {
-      console.error('Terjadi error:', err.message);
+      console.error('❌ Terjadi error:', err.message);
     } finally {
       await db.end();
     }
