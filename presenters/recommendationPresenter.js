@@ -1,146 +1,260 @@
 const { countUserRatings, getUserRatings } = require('../models/ratingModel');
-const { getCBFRecommendations, getCFRecommendations, getPopular } = require('../services/recommendationService');
+const { getCBFRecommendations, getCFRecommendations, getPopular, getHybridRecommendationsService } = require('../services/recommendationService');
 const { getPopularId: getPlaceById, getAllPlaces: getAllPlacesModel } = require('../models/placeModel');
 const { getPlaceDetails } = require('../models/ratingModel');
+const { isUserEligibleForHybrid, clearUserCache, CONFIG } = require('../services/hybridService');
 
+/**
+ * Enhanced recommendation presenter with better error handling
+ */
 async function recommendations(request, h) {
-  console.log('=== RECOMMENDATIONS PRESENTER DEBUG ===');
-  console.log('Full request auth:', JSON.stringify(request.auth, null, 2));
-  console.log('Auth credentials:', request.auth?.credentials);
-  
-  if (!request.auth || !request.auth.credentials) {
-    console.log('❌ No authentication found');
-    return h.response({ 
-      destinations: [],
-      message: 'Authentication required.' 
-    }).code(401);
-  }
-  
-  // FIXED: Prioritaskan userId, fallback ke id
-  const userId = request.auth.credentials.userId || request.auth.credentials.id;
-  console.log('Extracted User ID:', userId);
-  console.log('Available credential fields:', Object.keys(request.auth.credentials));
-  
-  if (!userId) {
-    console.log('❌ No user ID found in credentials');
-    console.log('Credentials object:', request.auth.credentials);
-    return h.response({ 
-      destinations: [],
-      message: 'User ID not found.' 
-    }).code(400);
-  }
+  console.log('=== RECOMMENDATIONS PRESENTER ===');
   
   try {
-    console.log('🔍 Counting user ratings for userId:', userId);
+    // Validate authentication
+    if (!request.auth?.credentials) {
+      return h.response({ 
+        destinations: [],
+        message: 'Authentication required.',
+        requiresAuth: true
+      }).code(401);
+    }
     
-    // FIXED: Tambahkan delay kecil untuk memastikan data sudah tersimpan
+    const userId = request.auth.credentials.userId || request.auth.credentials.id;
+    
+    if (!userId) {
+      return h.response({ 
+        destinations: [],
+        message: 'Invalid user credentials.',
+        requiresAuth: true
+      }).code(400);
+    }
+    
+    console.log('🔍 Getting recommendations for userId:', userId);
+    
+    // Add small delay to ensure recent ratings are saved
     await new Promise(resolve => setTimeout(resolve, 200));
     
-    const count = await countUserRatings(userId);
-    console.log('📊 User ratings retrieved:', count);
+    // Get user rating count
+    const ratingsCount = await countUserRatings(userId);
+    console.log('📊 User has', ratingsCount, 'ratings');
     
     let destinations = [];
+    let algorithm = 'none';
+    let message = '';
     
-    if (count < 5) {
-      console.log('Using CBF (Content-Based Filtering)');
+    if (ratingsCount === 0) {
+      // No ratings - return empty with message
+      return h.response({
+        destinations: [],
+        message: 'Berikan rating pada beberapa tempat untuk mendapatkan rekomendasi personal',
+        requiresInitialRating: true,
+        algorithm: 'none',
+        meta: { ratingsCount: 0 }
+      }).code(200);
       
-      console.log('=== GET USER RATINGS DEBUG ===');
-      console.log('User ID (type, value):', typeof userId, userId);
+    } else if (ratingsCount < CONFIG.MINIMUM_RATINGS_FOR_HYBRID) {
+      // Use CBF for users with few ratings
+      console.log('Using CBF (Content-Based Filtering)');
+      algorithm = 'cbf';
       
       const ratings = await getUserRatings(userId);
-      console.log('📊 User ratings retrieved:', JSON.stringify(ratings, null, 2));
-      console.log('User ratings for CBF:', JSON.stringify(ratings, null, 2));
-      
-      if (!ratings || ratings.length === 0) {
-        console.log('❌ No user ratings found');
-        
-        // FIXED: Tambahkan debug query langsung ke database
-        console.log('🔍 Direct database check for userId:', userId);
-        try {
-          const pool = require('../config/db');
-          const [directRows] = await pool.query(
-            'SELECT COUNT(*) as count FROM user_preferences WHERE user_id = ?',
-            [userId]
-          );
-          console.log('Direct DB count result:', directRows[0]);
-          
-          const [directData] = await pool.query(
-            'SELECT user_id, place_id, rating FROM user_preferences WHERE user_id = ? LIMIT 5',
-            [userId]
-          );
-          console.log('Direct DB data:', JSON.stringify(directData, null, 2));
-        } catch (dbError) {
-          console.error('Direct DB query error:', dbError);
-        }
-        
-        return h.response({ 
-          destinations: [],
-          message: 'No ratings found. Please submit ratings first.' 
-        }).code(200);
+      if (ratings && ratings.length > 0) {
+        destinations = await getCBFRecommendations(ratings, 10);
+        message = `Rekomendasi berdasarkan preferensi Anda (${ratingsCount} rating)`;
       }
       
-      console.log('✅ Found user ratings, getting CBF recommendations');
-      destinations = await getCBFRecommendations(ratings, 10);
-      console.log('CBF recommendations received:', destinations.length);
-      
     } else {
-      console.log('Using CF (Collaborative Filtering)');
-      destinations = await getCFRecommendations(userId, 10);
-      console.log('CF recommendations received:', destinations.length);
+      // Use Hybrid for users with sufficient ratings
+      console.log('Using Hybrid (CBF + CF)');
+      algorithm = 'hybrid';
+      
+      try {
+        destinations = await getHybridRecommendationsService(userId, 10);
+        message = `Rekomendasi personal hybrid (${ratingsCount} rating)`;
+      } catch (hybridError) {
+        console.log('Hybrid failed, falling back to CBF:', hybridError.message);
+        // Fallback to CBF
+        const ratings = await getUserRatings(userId);
+        destinations = await getCBFRecommendations(ratings, 10);
+        algorithm = 'cbf_fallback';
+        message = `Rekomendasi berdasarkan preferensi Anda (fallback)`;
+      }
     }
     
-    if (!destinations) {
-      destinations = [];
-    }
+    return h.response({
+      destinations: destinations || [],
+      message,
+      algorithm,
+      meta: {
+        ratingsCount,
+        minimumForHybrid: CONFIG.MINIMUM_RATINGS_FOR_HYBRID,
+        count: destinations?.length || 0
+      }
+    }).code(200);
     
-    console.log('Final destinations to return:', destinations.length);
-    console.log('Sample destinations:', JSON.stringify(destinations.slice(0, 2), null, 2));
-    
-    return h.response({ destinations }).code(200);
-    
-  } catch (err) {
-    console.error('❌ Error getting recommendations:', err);
-    console.error('Error stack:', err.stack);
+  } catch (error) {
+    console.error('❌ Error in recommendations:', error);
     return h.response({ 
       destinations: [],
-      message: 'Gagal mendapat rekomendasi.',
-      error: err.message 
+      message: 'Gagal mendapatkan rekomendasi',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     }).code(500);
   }
 }
 
+/**
+ * Enhanced hybrid recommendations with better validation
+ */
+async function getHybridRecommendations(request, h) {
+  console.log('=== HYBRID RECOMMENDATIONS PRESENTER ===');
+  
+  try {
+    // Validate authentication
+    if (!request.auth?.credentials) {
+      return h.response({ 
+        destinations: [],
+        message: 'Authentication required.',
+        requiresInitialRating: true
+      }).code(401);
+    }
+    
+    const userId = request.auth.credentials.userId || request.auth.credentials.id;
+    
+    if (!userId) {
+      return h.response({ 
+        destinations: [],
+        message: 'Invalid user credentials.',
+        requiresInitialRating: true
+      }).code(400);
+    }
+    
+    console.log('🔍 Checking hybrid eligibility for userId:', userId);
+    
+    // Check eligibility first
+    const eligibility = await isUserEligibleForHybrid(userId);
+    
+    if (!eligibility.eligible) {
+      return h.response({
+        destinations: [],
+        message: `Berikan rating pada ${eligibility.ratingsNeeded} tempat lagi untuk mendapatkan rekomendasi hybrid`,
+        requiresInitialRating: true,
+        type: 'insufficient_ratings',
+        meta: {
+          algorithm: 'hybrid',
+          ratingsCount: eligibility.ratingsCount,
+          minimumRequired: eligibility.minimumRequired,
+          ratingsNeeded: eligibility.ratingsNeeded
+        }
+      }).code(200);
+    }
+    
+    // Get hybrid recommendations
+    console.log('🔄 Getting hybrid recommendations...');
+    const recommendations = await getHybridRecommendationsService(userId, 10);
+    
+    if (!recommendations || recommendations.length === 0) {
+      return h.response({
+        destinations: [],
+        message: 'Tidak ada rekomendasi yang tersedia saat ini',
+        requiresInitialRating: false,
+        type: 'no_recommendations',
+        meta: {
+          algorithm: 'hybrid',
+          ratingsCount: eligibility.ratingsCount
+        }
+      }).code(200);
+    }
+
+    return h.response({
+      destinations: recommendations,
+      message: 'Rekomendasi hybrid berhasil dimuat',
+      requiresInitialRating: false,
+      type: 'hybrid_success',
+      meta: {
+        algorithm: 'hybrid',
+        count: recommendations.length,
+        alpha: recommendations[0]?.alpha || 0.5,
+        ratingsCount: eligibility.ratingsCount
+      }
+    }).code(200);
+    
+  } catch (error) {
+    console.error('❌ Error in getHybridRecommendations:', error);
+    return h.response({ 
+      destinations: [],
+      message: 'Gagal mendapatkan rekomendasi hybrid',
+      requiresInitialRating: true,
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    }).code(500);
+  }
+}
+
+/**
+ * Check user rating status
+ */
+async function checkUserRatingStatus(request, h) {
+  try {
+    const userId = request.auth.credentials.userId || request.auth.credentials.id;
+    
+    if (!userId) {
+      return h.response({
+        needsInitialRating: true,
+        ratingsCount: 0,
+        minimumRequired: CONFIG.MINIMUM_RATINGS_FOR_HYBRID
+      }).code(400);
+    }
+    
+    const eligibility = await isUserEligibleForHybrid(userId);
+    
+    return h.response({
+      needsInitialRating: !eligibility.eligible,
+      ratingsCount: eligibility.ratingsCount,
+      minimumRequired: eligibility.minimumRequired,
+      ratingsNeeded: eligibility.ratingsNeeded,
+      eligible: eligibility.eligible
+    }).code(200);
+    
+  } catch (error) {
+    console.error('Error checking user rating status:', error);
+    return h.response({
+      needsInitialRating: true,
+      ratingsCount: 0,
+      minimumRequired: CONFIG.MINIMUM_RATINGS_FOR_HYBRID,
+      error: 'Failed to check status'
+    }).code(500);
+  }
+}
+
+/**
+ * Popular destinations (unchanged)
+ */
 async function popular(request, h) {
   const limit = parseInt(request.query.limit, 10) || 12;
   
-  console.log('=== POPULAR DESTINATIONS PRESENTER DEBUG ===');
-  console.log('Limit:', limit);
-  
   try {
     const destinations = await getPopular(limit);
-    console.log('Popular destinations count:', destinations.length);
     return h.response({ destinations }).code(200);
-  } catch (err) {
-    console.error('❌ Error loading popular destinations:', err);
+  } catch (error) {
+    console.error('Error loading popular destinations:', error);
     return h.response({ 
       destinations: [],
-      message: 'Gagal memuat popular destinations.' 
+      message: 'Failed to load popular destinations'
     }).code(500);
   }
 }
 
+// Other functions remain the same...
 async function getAllPlaces(request, h) {
-  console.log('=== GET ALL PLACES PRESENTER DEBUG ===');
-  
   try {
     const places = await getAllPlacesModel();
-    console.log('All places count:', places.length);
     return h.response(places).code(200);
-  } catch (err) {
-    console.error('❌ Error loading all places:', err);
+  } catch (error) {
+    console.error('Error loading all places:', error);
     return h.response({ 
       statusCode: 500,
       error: "Internal Server Error",
-      message: 'Gagal memuat semua tempat.' 
+      message: 'Failed to load places'
     }).code(500);
   }
 }
@@ -173,8 +287,6 @@ async function getPopularId(request, h) {
 async function getPlaceRatings(request, h) {
   const placeId = parseInt(request.params.id);
   
-  console.log('Getting place details for place ID:', placeId);
-  
   try {
     const place = await getPlaceDetails(placeId);
     
@@ -182,7 +294,7 @@ async function getPlaceRatings(request, h) {
       return h.response({ 
         statusCode: 404,
         error: "Not Found",
-        message: 'No place found with this ID' 
+        message: 'Place not found'
       }).code(404);
     }
     
@@ -202,5 +314,7 @@ module.exports = {
   popular, 
   getAllPlaces,
   getPopularId, 
-  getPlaceRatings 
+  getPlaceRatings,
+  getHybridRecommendations,
+  checkUserRatingStatus
 };

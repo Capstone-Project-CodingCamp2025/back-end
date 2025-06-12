@@ -31,6 +31,18 @@ exports.plugin = {
         handler: recPres.popular,          
         options: { auth: false } 
       },
+      { 
+        method: 'GET',  
+        path: '/api/recommendations/hybrid',       
+        handler: recPres.getHybridRecommendations,   
+        options: { auth: 'jwt' } 
+      },
+      { 
+        method: 'GET',  
+        path: '/api/user/rating-status',       
+        handler: recPres.checkUserRatingStatus,   
+        options: { auth: 'jwt' } 
+      },
     ]);
     
     console.log('✅ Recommendation routes and methods registered');
