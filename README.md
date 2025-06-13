@@ -15,15 +15,38 @@ Backend proyek **SIRESITA** dibangun menggunakan **Node.js** dan **Express.js**.
 
 ## 🛠️ Teknologi yang Digunakan
 
-- **Node.js**
-- **Hapi.js**
-- **TensorFlow.js**
-- **dotenv**
-- **CORS**
-- **Body-Parser**
-- **Custom Middleware (auth.js)**
+### 🔧 Runtime & Framework
+- **Node.js** – Runtime environment JavaScript untuk sisi server.
+- **Hapi.js** – Framework backend ringan untuk membangun RESTful API.
+- **@hapi/bell**, **@hapi/inert**, **@hapi/jwt** – Plugin resmi Hapi untuk OAuth, file serving, dan autentikasi JWT.
+
+### 🤖 Machine Learning & Data
+- **@tensorflow/tfjs-node** – TensorFlow.js untuk menjalankan model AI di sisi server.
+- **compute-cosine-similarity** – Untuk perhitungan kemiripan konten berbasis vektor.
+- **numpy-parser** – Untuk membaca file `.npy` (NumPy) di Node.js.
+
+### 🔐 Autentikasi & Keamanan
+- **bcrypt**, **bcryptjs** – Enkripsi password.
+- **jsonwebtoken (JWT)** – Untuk otorisasi via token.
+- **passport**, **passport-google-oauth20** – Otentikasi pengguna via Google OAuth.
+
+### 📡 Networking & API
+- **axios** – HTTP client untuk konsumsi API eksternal.
+- **cors** – Middleware untuk mengatur kebijakan CORS (Cross-Origin Resource Sharing).
+
+### 📂 File Handling & Data
+- **fs**, **fs-extra** – Akses dan manipulasi file sistem.
+- **csv-parser** – Membaca data dari file CSV.
+- **dotenv** – Mengelola variabel lingkungan melalui file `.env`.
+
+### 📧 Komunikasi
+- **nodemailer** – Untuk mengirim email (OTP, reset password, dll).
+
+### 🗃️ Database
+- **mysql**, **mysql2** – Klien untuk koneksi ke database MySQL/MariaDB.
 
 ---
+
 
 ## 📁 Struktur Direktori
 
@@ -85,12 +108,44 @@ npm start
 
 | Method | Endpoint | Deskripsi |
 |--------|----------|-----------|
-| `GET`  | `/api/cbf/:placeName` | Mendapatkan rekomendasi wisata berbasis content-based |
-| `POST` | `/api/cf/recommend`  | Rekomendasi wisata berbasis rating pengguna |
-| `POST` | `/api/user/login`    | Login pengguna |
-| `POST` | `/api/user/register` | Registrasi pengguna |
-| `GET`  | `/api/places`        | Mendapatkan daftar tempat wisata |
-| `POST` | `/api/rating`        | Menambahkan rating pengguna |
+| `POST` | `/api/register` | Registrasi pengguna manual |
+| `POST` | `/api/login` | Login pengguna manual |
+| `GET`  | `/api/auth/google` | Redirect ke Google OAuth |
+| `GET`  | `/api/auth/google/callback` | Callback setelah login Google |
+| `POST` | `/api/auth/google/token` | Login menggunakan token Google |
+| `POST` | `/api/auth/google/register` | Registrasi pengguna via Google |
+| `GET`  | `/api/me` | Mendapatkan data user saat ini |
+| `GET`  | `/api/check-auth` | Mengecek status autentikasi |
+| `POST` | `/api/logout` | Logout pengguna |
+| `POST` | `/api/forgot-password` | Lupa password - kirim OTP |
+| `POST` | `/api/verify-otp` | Verifikasi OTP |
+| `POST` | `/api/reset-password` | Reset password baru |
+| `POST` | `/api/resend-otp` | Kirim ulang OTP |
+| `GET`  | `/api/places` | Mendapatkan semua tempat wisata |
+| `GET`  | `/api/places/{id}` | Mendapatkan tempat wisata berdasarkan ID |
+| `GET`  | `/api/places/{id}/details` | Mendapatkan detail tempat & review |
+| `GET`  | `/api/places/{placeId}/reviews` | Mendapatkan semua review tempat |
+| `GET`  | `/api/places/{placeId}/ratings` | Mendapatkan semua rating tempat |
+| `POST` | `/api/places/{placeId}/ratings` | Submit review dan rating |
+| `POST` | `/api/ratings` | Submit rating (umum) |
+| `POST` | `/api/initial-ratings` | Submit rating awal saat registrasi |
+| `GET`  | `/api/bookmarks` | Mendapatkan semua bookmark pengguna |
+| `POST` | `/api/bookmarks` | Menambahkan bookmark |
+| `DELETE` | `/api/bookmarks/{placeId}` | Menghapus bookmark berdasarkan ID tempat |
+| `GET`  | `/api/bookmarks/check/{placeId}` | Mengecek apakah tempat dibookmark |
+| `POST` | `/api/bookmarks/status` | Mengecek status bookmark untuk banyak tempat |
+| `POST` | `/api/contacts` | Kirim pesan ke kontak |
+| `GET`  | `/api/contacts` | (Admin) Mendapatkan semua pesan kontak |
+| `GET`  | `/api/contacts/{id}` | (Admin) Mendapatkan pesan berdasarkan ID |
+| `PUT`  | `/api/contacts/{id}/status` | (Admin) Update status pesan kontak |
+| `DELETE` | `/api/contacts/{id}` | (Admin) Hapus pesan kontak |
+| `GET`  | `/api/contacts/stats` | (Admin) Statistik pesan kontak |
+| `GET`  | `/api/recommendations` | Rekomendasi untuk pengguna (umum) |
+| `GET`  | `/api/recommendations/popular` | Rekomendasi tempat populer |
+| `GET`  | `/api/recommendations/hybrid` | Hybrid rekomendasi |
+| `GET`  | `/api/user/rating-status` | Mengecek status rating user |
+| `GET`  | `/api/cbf/{placeName}` | Rekomendasi wisata (Content-Based Filtering) |
+| `POST` | `/api/cf/recommend` | Rekomendasi wisata (Collaborative Filtering) |
 
 ---
 
