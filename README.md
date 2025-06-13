@@ -109,6 +109,7 @@ GOOGLE_REDIRECT_URI=your_redirect_uri
 
 ### 3. Jalankan Server
 ```bash
+node config/createDatabase.js
 npx nodemon index.js
 ```
 
