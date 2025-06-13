@@ -229,7 +229,7 @@ Backend ini akan melakukan:
 ## 📍 Tim Backend
 
 - Ferri Krisdiantoro – Setup Server, API Handler, Routing, Auth Middleware, Integrasi Model ke API + Database
-- Diah Putri Kartikasari – API Handler (Login and Register), JWT Auth
+- Sean Andrianto – API Handler (Login and Register), JWT Auth
 
 ---
 
