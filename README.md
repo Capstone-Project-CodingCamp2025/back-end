@@ -53,6 +53,8 @@ Backend proyek **SIRESITA** dibangun menggunakan **Node.js** dan **Express.js**.
 ```
 back-end/
 ├── .env
+├── .gitignore
+├── README.md
 ├── index.js
 ├── package.json
 ├── package-lock.json
@@ -61,19 +63,64 @@ back-end/
 │   ├── db.js
 │   ├── server.js
 │   └── verifyDatabase.js
-├── middleware/
-│   └── auth.js
-├── dataset/
-│   └── transformed.csv
 ├── data/
 │   ├── cbf/
 │   │   ├── cosine_similarity_matrix.npy
 │   │   ├── tfidf_parameters.json
 │   │   └── tourism_recommendation_model.json
 │   └── cf/
-│       ├── encoders.json
 │       ├── cf/  # TensorFlow SavedModel
-│       └── tfjs_model/  # TensorFlow.js export
+│       ├── tfjs_model/  # TensorFlow.js export
+│       └── encoders.json
+├── dataset/
+│   └── transformed.csv
+├── middleware/
+│   └── auth.js
+├── models/
+│   ├── bookmarkModel.js
+│   ├── contactModel.js
+│   ├── placeModel.js
+│   ├── ratingModel.js
+│   ├── resetPasswordModel.js
+│   ├── reviewModel.js
+│   └── userModel.js
+├── presenters/
+│   ├── authPresenter.js
+│   ├── contactPresenter.js
+│   ├── recommendationPresenter.js
+│   ├── resetPasswordPresenter.js
+├── public/
+│   └── gambar_data/
+├── routes/
+│   ├── authRoutes.js
+│   ├── bookmarkRoutes.js
+│   ├── contactRoutes.js
+│   ├── placeRoutes.js
+│   ├── ratingRoutes.js
+│   ├── recommendationRoutes.js
+│   ├── resetPasswordRoutes.js
+│   └── reviewRoutes.js
+├── services/
+│   ├── cbfService.js
+│   ├── cfService.js
+│   ├── contactService.js
+│   ├── emailService.js
+│   ├── googleAuthService.js
+│   ├── hybridService.js
+│   ├── jwtService.js
+│   ├── otpService.js
+│   └── recommendationService.js
+├── utils/
+│   ├── imageHelpers.js
+│   └── jwt.js
+├── views/
+│   ├── authView.js
+│   ├── bookmarkView.js
+│   ├── contactView.js
+│   ├── placeView.js
+│   ├── ratingView.js
+│   ├── recommendationView.js
+└── └── reviewView.js
 ```
 
 ---
