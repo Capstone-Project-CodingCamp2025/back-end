@@ -90,16 +90,26 @@ npm install
 ### 2. Konfigurasi Environment
 Buat file `.env` berdasarkan kebutuhan koneksi database dan port:
 ```
-PORT=5000
-DB_HOST=localhost
-DB_USER=root
-DB_PASS=password
-DB_NAME=siresita
+DB_HOST=your_host
+DB_USERNAME=yout_username
+DB_USERNAME=your_password
+DB_DATABASE=your_dbname
+
+JWT_SECRET=your_jwt
+
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=your_email
+SMTP_PASS=your_email
+
+GOOGLE_CLIENT_ID=your_client_id
+GOOGLE_CLIENT_SECRET=your_client_secret
+GOOGLE_REDIRECT_URI=your_redirect_uri
 ```
 
 ### 3. Jalankan Server
 ```bash
-npm start
+npx nodemon index.js
 ```
 
 ---
